@@ -12,6 +12,8 @@ const (
 	BluezObjectPath     = "/org/bluez"
 	AdapterInterface    = "org.bluez.Adapter1"
 	DeviceInterface     = "org.bluez.Device1"
+	AgentManagerIface   = "org.bluez.AgentManager1"
+	AgentInterface      = "org.bluez.Agent1"
 	ObjectManagerIface  = "org.freedesktop.DBus.ObjectManager"
 )
 
@@ -205,6 +207,35 @@ func (bm *BluetoothManager) TrustDevice(adapterPath, macAddress string) error {
 	call := obj.Call("org.freedesktop.DBus.Properties.Set", 0, DeviceInterface, "Trusted", dbus.MakeVariant(true))
 	if call.Err != nil {
 		return fmt.Errorf("failed to trust device %s: %w", macAddress, call.Err)
+	}
+
+	return nil
+}
+
+// GetAdapterPathByMAC resolves an adapter MAC address to its D-Bus path
+func (bm *BluetoothManager) GetAdapterPathByMAC(macAddress string) (string, error) {
+	adapters, err := bm.GetAdapters()
+	if err != nil {
+		return "", err
+	}
+
+	for _, adapter := range adapters {
+		if adapter.Address == macAddress {
+			return adapter.Path, nil
+		}
+	}
+
+	return "", fmt.Errorf("adapter with MAC address %s not found", macAddress)
+}
+
+// PairDevice pairs with a device by MAC address and auto-accepts PIN/passkey
+func (bm *BluetoothManager) PairDevice(adapterPath, macAddress string) error {
+	devicePath := fmt.Sprintf("%s/dev_%s", adapterPath, strings.ReplaceAll(macAddress, ":", "_"))
+	
+	obj := bm.conn.Object(BluezService, dbus.ObjectPath(devicePath))
+	call := obj.Call(DeviceInterface+".Pair", 0)
+	if call.Err != nil {
+		return fmt.Errorf("failed to pair with device %s: %w", macAddress, call.Err)
 	}
 
 	return nil

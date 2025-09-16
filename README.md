@@ -25,12 +25,13 @@ A Bluetooth broker web application built with Go, Echo framework, and SQLite. Th
 
 ### Bluetooth Management
 - `GET /api/v1/bluetooth/adapters` - List all Bluetooth adapters
-- `GET /api/v1/bluetooth/adapters/{adapter}/devices` - List all devices for an adapter
-- `GET /api/v1/bluetooth/adapters/{adapter}/devices/trusted` - List trusted devices for an adapter
-- `GET /api/v1/bluetooth/adapters/{adapter}/devices/connected` - List connected devices for an adapter
-- `POST /api/v1/bluetooth/adapters/{adapter}/devices/{mac}/connect` - Connect to a device by MAC address
-- `POST /api/v1/bluetooth/adapters/{adapter}/devices/{mac}/trust` - Trust a device by MAC address
-- `DELETE /api/v1/bluetooth/adapters/{adapter}/devices/{mac}` - Remove a device by MAC address
+- `GET /api/v1/bluetooth/adapters/{adapter_mac}/devices` - List all devices for an adapter by MAC address
+- `GET /api/v1/bluetooth/adapters/{adapter_mac}/devices/trusted` - List trusted devices for an adapter by MAC address
+- `GET /api/v1/bluetooth/adapters/{adapter_mac}/devices/connected` - List connected devices for an adapter by MAC address
+- `POST /api/v1/bluetooth/adapters/{adapter_mac}/devices/{device_mac}/pair` - Pair with a device by MAC address (auto-accepts PIN)
+- `POST /api/v1/bluetooth/adapters/{adapter_mac}/devices/{device_mac}/connect` - Connect to a device by MAC address
+- `POST /api/v1/bluetooth/adapters/{adapter_mac}/devices/{device_mac}/trust` - Trust a device by MAC address
+- `DELETE /api/v1/bluetooth/adapters/{adapter_mac}/devices/{device_mac}` - Remove a device by MAC address
 
 ## Quick Start
 
@@ -85,21 +86,24 @@ curl -X DELETE http://localhost:8080/api/v1/tokens/user1
 # List all Bluetooth adapters
 curl http://localhost:8080/api/v1/bluetooth/adapters
 
-# List devices for adapter hci0
-curl http://localhost:8080/api/v1/bluetooth/adapters/hci0/devices
+# List devices for adapter with MAC address AA:BB:CC:DD:EE:00
+curl http://localhost:8080/api/v1/bluetooth/adapters/AA:BB:CC:DD:EE:00/devices
 
 # List trusted devices
-curl http://localhost:8080/api/v1/bluetooth/adapters/hci0/devices/trusted
+curl http://localhost:8080/api/v1/bluetooth/adapters/AA:BB:CC:DD:EE:00/devices/trusted
 
 # List connected devices
-curl http://localhost:8080/api/v1/bluetooth/adapters/hci0/devices/connected
+curl http://localhost:8080/api/v1/bluetooth/adapters/AA:BB:CC:DD:EE:00/devices/connected
+
+# Pair with device (auto-accepts PIN)
+curl -X POST http://localhost:8080/api/v1/bluetooth/adapters/AA:BB:CC:DD:EE:00/devices/11:22:33:44:55:66/pair
 
 # Connect to device
-curl -X POST http://localhost:8080/api/v1/bluetooth/adapters/hci0/devices/AA:BB:CC:DD:EE:FF/connect
+curl -X POST http://localhost:8080/api/v1/bluetooth/adapters/AA:BB:CC:DD:EE:00/devices/11:22:33:44:55:66/connect
 
 # Trust device
-curl -X POST http://localhost:8080/api/v1/bluetooth/adapters/hci0/devices/AA:BB:CC:DD:EE:FF/trust
+curl -X POST http://localhost:8080/api/v1/bluetooth/adapters/AA:BB:CC:DD:EE:00/devices/11:22:33:44:55:66/trust
 
 # Remove device
-curl -X DELETE http://localhost:8080/api/v1/bluetooth/adapters/hci0/devices/AA:BB:CC:DD:EE:FF
+curl -X DELETE http://localhost:8080/api/v1/bluetooth/adapters/AA:BB:CC:DD:EE:00/devices/11:22:33:44:55:66
 ```

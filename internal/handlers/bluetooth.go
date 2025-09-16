@@ -43,18 +43,21 @@ func (bh *BluetoothHandler) GetAdapters(c echo.Context) error {
 	})
 }
 
-// GetDevices returns all devices for a specific adapter
+// GetDevices returns all devices for a specific adapter by MAC address
 func (bh *BluetoothHandler) GetDevices(c echo.Context) error {
-	adapterPath := c.Param("adapter")
-	if adapterPath == "" {
+	adapterMAC := c.Param("adapter")
+	if adapterMAC == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "adapter parameter is required",
+			"error": "adapter MAC address parameter is required",
 		})
 	}
 
-	// Construct full adapter path if not provided
-	if adapterPath[0] != '/' {
-		adapterPath = "/org/bluez/" + adapterPath
+	// Resolve MAC address to adapter path
+	adapterPath, err := bh.btManager.GetAdapterPathByMAC(adapterMAC)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{
+			"error": "adapter not found: " + err.Error(),
+		})
 	}
 
 	devices, err := bh.btManager.GetDevices(adapterPath)
@@ -69,18 +72,21 @@ func (bh *BluetoothHandler) GetDevices(c echo.Context) error {
 	})
 }
 
-// GetTrustedDevices returns trusted devices for a specific adapter
+// GetTrustedDevices returns trusted devices for a specific adapter by MAC address
 func (bh *BluetoothHandler) GetTrustedDevices(c echo.Context) error {
-	adapterPath := c.Param("adapter")
-	if adapterPath == "" {
+	adapterMAC := c.Param("adapter")
+	if adapterMAC == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "adapter parameter is required",
+			"error": "adapter MAC address parameter is required",
 		})
 	}
 
-	// Construct full adapter path if not provided
-	if adapterPath[0] != '/' {
-		adapterPath = "/org/bluez/" + adapterPath
+	// Resolve MAC address to adapter path
+	adapterPath, err := bh.btManager.GetAdapterPathByMAC(adapterMAC)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{
+			"error": "adapter not found: " + err.Error(),
+		})
 	}
 
 	devices, err := bh.btManager.GetTrustedDevices(adapterPath)
@@ -95,18 +101,21 @@ func (bh *BluetoothHandler) GetTrustedDevices(c echo.Context) error {
 	})
 }
 
-// GetConnectedDevices returns connected devices for a specific adapter
+// GetConnectedDevices returns connected devices for a specific adapter by MAC address
 func (bh *BluetoothHandler) GetConnectedDevices(c echo.Context) error {
-	adapterPath := c.Param("adapter")
-	if adapterPath == "" {
+	adapterMAC := c.Param("adapter")
+	if adapterMAC == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "adapter parameter is required",
+			"error": "adapter MAC address parameter is required",
 		})
 	}
 
-	// Construct full adapter path if not provided
-	if adapterPath[0] != '/' {
-		adapterPath = "/org/bluez/" + adapterPath
+	// Resolve MAC address to adapter path
+	adapterPath, err := bh.btManager.GetAdapterPathByMAC(adapterMAC)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{
+			"error": "adapter not found: " + err.Error(),
+		})
 	}
 
 	devices, err := bh.btManager.GetConnectedDevices(adapterPath)
@@ -121,29 +130,32 @@ func (bh *BluetoothHandler) GetConnectedDevices(c echo.Context) error {
 	})
 }
 
-// ConnectDevice connects to a device
+// ConnectDevice connects to a device by MAC address using adapter MAC
 func (bh *BluetoothHandler) ConnectDevice(c echo.Context) error {
-	adapterPath := c.Param("adapter")
+	adapterMAC := c.Param("adapter")
 	macAddress := c.Param("mac")
 	
-	if adapterPath == "" {
+	if adapterMAC == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "adapter parameter is required",
+			"error": "adapter MAC address parameter is required",
 		})
 	}
 	
 	if macAddress == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "mac parameter is required",
+			"error": "device MAC address parameter is required",
 		})
 	}
 
-	// Construct full adapter path if not provided
-	if adapterPath[0] != '/' {
-		adapterPath = "/org/bluez/" + adapterPath
+	// Resolve MAC address to adapter path
+	adapterPath, err := bh.btManager.GetAdapterPathByMAC(adapterMAC)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{
+			"error": "adapter not found: " + err.Error(),
+		})
 	}
 
-	err := bh.btManager.ConnectDevice(adapterPath, macAddress)
+	err = bh.btManager.ConnectDevice(adapterPath, macAddress)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "failed to connect device: " + err.Error(),
@@ -155,29 +167,32 @@ func (bh *BluetoothHandler) ConnectDevice(c echo.Context) error {
 	})
 }
 
-// TrustDevice trusts a device
+// TrustDevice trusts a device by MAC address using adapter MAC
 func (bh *BluetoothHandler) TrustDevice(c echo.Context) error {
-	adapterPath := c.Param("adapter")
+	adapterMAC := c.Param("adapter")
 	macAddress := c.Param("mac")
 	
-	if adapterPath == "" {
+	if adapterMAC == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "adapter parameter is required",
+			"error": "adapter MAC address parameter is required",
 		})
 	}
 	
 	if macAddress == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "mac parameter is required",
+			"error": "device MAC address parameter is required",
 		})
 	}
 
-	// Construct full adapter path if not provided
-	if adapterPath[0] != '/' {
-		adapterPath = "/org/bluez/" + adapterPath
+	// Resolve MAC address to adapter path
+	adapterPath, err := bh.btManager.GetAdapterPathByMAC(adapterMAC)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{
+			"error": "adapter not found: " + err.Error(),
+		})
 	}
 
-	err := bh.btManager.TrustDevice(adapterPath, macAddress)
+	err = bh.btManager.TrustDevice(adapterPath, macAddress)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "failed to trust device: " + err.Error(),
@@ -189,29 +204,32 @@ func (bh *BluetoothHandler) TrustDevice(c echo.Context) error {
 	})
 }
 
-// RemoveDevice removes a device
+// RemoveDevice removes a device by MAC address using adapter MAC
 func (bh *BluetoothHandler) RemoveDevice(c echo.Context) error {
-	adapterPath := c.Param("adapter")
+	adapterMAC := c.Param("adapter")
 	macAddress := c.Param("mac")
 	
-	if adapterPath == "" {
+	if adapterMAC == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "adapter parameter is required",
+			"error": "adapter MAC address parameter is required",
 		})
 	}
 	
 	if macAddress == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{
-			"error": "mac parameter is required",
+			"error": "device MAC address parameter is required",
 		})
 	}
 
-	// Construct full adapter path if not provided
-	if adapterPath[0] != '/' {
-		adapterPath = "/org/bluez/" + adapterPath
+	// Resolve MAC address to adapter path
+	adapterPath, err := bh.btManager.GetAdapterPathByMAC(adapterMAC)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{
+			"error": "adapter not found: " + err.Error(),
+		})
 	}
 
-	err := bh.btManager.RemoveDevice(adapterPath, macAddress)
+	err = bh.btManager.RemoveDevice(adapterPath, macAddress)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "failed to remove device: " + err.Error(),
@@ -220,5 +238,42 @@ func (bh *BluetoothHandler) RemoveDevice(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, map[string]string{
 		"message": "device removed successfully",
+	})
+}
+
+// PairDevice pairs with a device by MAC address using adapter MAC
+func (bh *BluetoothHandler) PairDevice(c echo.Context) error {
+	adapterMAC := c.Param("adapter")
+	macAddress := c.Param("mac")
+	
+	if adapterMAC == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "adapter MAC address parameter is required",
+		})
+	}
+	
+	if macAddress == "" {
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "device MAC address parameter is required",
+		})
+	}
+
+	// Resolve MAC address to adapter path
+	adapterPath, err := bh.btManager.GetAdapterPathByMAC(adapterMAC)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{
+			"error": "adapter not found: " + err.Error(),
+		})
+	}
+
+	err = bh.btManager.PairDevice(adapterPath, macAddress)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "failed to pair device: " + err.Error(),
+		})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"message": "device pairing initiated successfully",
 	})
 }

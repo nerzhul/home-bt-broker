@@ -61,6 +61,7 @@ func main() {
 	api.GET("/bluetooth/adapters/:adapter/devices", btHandler.GetDevices)
 	api.GET("/bluetooth/adapters/:adapter/devices/trusted", btHandler.GetTrustedDevices)
 	api.GET("/bluetooth/adapters/:adapter/devices/connected", btHandler.GetConnectedDevices)
+	api.POST("/bluetooth/adapters/:adapter/devices/:mac/pair", btHandler.PairDevice)
 	api.POST("/bluetooth/adapters/:adapter/devices/:mac/connect", btHandler.ConnectDevice)
 	api.POST("/bluetooth/adapters/:adapter/devices/:mac/trust", btHandler.TrustDevice)
 	api.DELETE("/bluetooth/adapters/:adapter/devices/:mac", btHandler.RemoveDevice)
