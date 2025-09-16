@@ -9,7 +9,7 @@ import (
 
 // BluetoothHandler handles Bluetooth-related endpoints
 type BluetoothHandler struct {
-	btManager *bluetooth.BluetoothManager
+	btManager bluetooth.BluetoothManagerInterface
 }
 
 // NewBluetoothHandler creates a new Bluetooth handler
@@ -20,6 +20,11 @@ func NewBluetoothHandler() (*BluetoothHandler, error) {
 	}
 
 	return &BluetoothHandler{btManager: btManager}, nil
+}
+
+// NewBluetoothHandlerWithManager creates a new Bluetooth handler with a custom manager (for testing)
+func NewBluetoothHandlerWithManager(btManager bluetooth.BluetoothManagerInterface) *BluetoothHandler {
+	return &BluetoothHandler{btManager: btManager}
 }
 
 // Close closes the Bluetooth manager connection

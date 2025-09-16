@@ -6,10 +6,11 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/nerzhul/home-bt-broker/internal/database"
 )
 
 type Handler struct {
-	db *sql.DB
+	db database.DatabaseInterface
 }
 
 type Token struct {
@@ -24,6 +25,11 @@ type CreateTokenRequest struct {
 }
 
 func NewHandler(db *sql.DB) *Handler {
+	return &Handler{db: db}
+}
+
+// NewHandlerWithDB creates a new handler with a custom database interface (for testing)
+func NewHandlerWithDB(db database.DatabaseInterface) *Handler {
 	return &Handler{db: db}
 }
 
