@@ -10,6 +10,8 @@ A Bluetooth broker web application built with Go, Echo framework, and SQLite. Th
 - **Health checks**: Includes `/readyz` and `/livez` endpoints for Kubernetes/container orchestration
 - **RESTful API**: CRUD operations for managing username/token pairs and Bluetooth devices
 - **Docker support**: Multi-stage builds with distroless final image for security
+- **Comprehensive testing**: Unit tests with 76.9% coverage and mocked dependencies
+- **CI/CD automation**: GitHub Actions for testing and multi-architecture Docker builds
 
 ## API Endpoints
 
@@ -106,4 +108,44 @@ curl -X POST http://localhost:8080/api/v1/bluetooth/adapters/AA:BB:CC:DD:EE:00/d
 
 # Remove device
 curl -X DELETE http://localhost:8080/api/v1/bluetooth/adapters/AA:BB:CC:DD:EE:00/devices/11:22:33:44:55:66
+```
+
+## CI/CD
+
+The project includes automated GitHub Actions workflows:
+
+### Workflows
+
+- **Unit Tests** (`.github/workflows/test.yml`): Runs on every push and pull request
+  - Executes all unit tests with coverage reporting
+  - Uploads coverage artifacts
+  - Supports Go 1.22
+
+- **Docker Build** (`.github/workflows/docker.yml`): Builds multi-architecture Docker images
+  - Builds for both AMD64 and ARM64 architectures
+  - Pushes to GitHub Container Registry (ghcr.io)
+  - Runs on pushes to main/develop and on releases
+
+- **Release Pipeline** (`.github/workflows/release.yml`): Complete CI/CD for releases
+  - Runs tests with coverage threshold check (70% minimum)
+  - Builds and pushes Docker images on successful tests
+  - Triggers on GitHub releases and manual dispatch
+
+### Container Registry
+
+Images are published to GitHub Container Registry:
+```
+ghcr.io/nerzhul/home-bt-broker:latest
+ghcr.io/nerzhul/home-bt-broker:v1.0.0  # version tags
+```
+
+### Usage in CI
+
+```bash
+# Run tests locally (same as CI)
+make test
+
+# Build Docker images locally
+make docker-build        # Single architecture
+make docker-build-multi  # Multi-architecture
 ```
