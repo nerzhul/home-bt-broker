@@ -7,6 +7,11 @@
 *.dll
 *.so
 *.dylib
+app
+app-static
+
+# Build directory
+bin/
 
 # Test binary, built with `go test -c`
 *.test
@@ -23,6 +28,11 @@ profile.cov
 # Go workspace file
 go.work
 go.work.sum
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
 
 # env file
 .env
