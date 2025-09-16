@@ -1,4 +1,4 @@
-.PHONY: build run test clean docker-build docker-run
+.PHONY: build run test clean docker-build
 
 # Build the application
 build:
@@ -24,10 +24,6 @@ clean:
 # Build Docker image locally
 docker-build:
 	docker buildx bake local
-
-# Run with Docker Compose
-docker-run:
-	docker-compose up --build
 
 # Build multi-architecture images
 docker-build-multi:

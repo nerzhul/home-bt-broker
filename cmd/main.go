@@ -25,6 +25,13 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
+	// Initialize Bluetooth handler
+	btHandler, err := handlers.NewBluetoothHandler()
+	if err != nil {
+		log.Fatalf("Failed to initialize Bluetooth handler: %v", err)
+	}
+	defer btHandler.Close()
+
 	// Create Echo instance
 	e := echo.New()
 
@@ -42,10 +49,21 @@ func main() {
 
 	// API routes
 	api := e.Group("/api/v1")
+	
+	// Token management endpoints
 	api.POST("/tokens", h.CreateToken)
 	api.GET("/tokens", h.GetTokens)
 	api.GET("/tokens/:username", h.GetToken)
 	api.DELETE("/tokens/:username", h.DeleteToken)
+
+	// Bluetooth endpoints
+	api.GET("/bluetooth/adapters", btHandler.GetAdapters)
+	api.GET("/bluetooth/adapters/:adapter/devices", btHandler.GetDevices)
+	api.GET("/bluetooth/adapters/:adapter/devices/trusted", btHandler.GetTrustedDevices)
+	api.GET("/bluetooth/adapters/:adapter/devices/connected", btHandler.GetConnectedDevices)
+	api.POST("/bluetooth/adapters/:adapter/devices/:mac/connect", btHandler.ConnectDevice)
+	api.POST("/bluetooth/adapters/:adapter/devices/:mac/trust", btHandler.TrustDevice)
+	api.DELETE("/bluetooth/adapters/:adapter/devices/:mac", btHandler.RemoveDevice)
 
 	// Start server
 	port := os.Getenv("PORT")
