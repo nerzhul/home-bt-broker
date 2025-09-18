@@ -9,6 +9,37 @@ import (
 	"github.com/nerzhul/home-bt-broker/internal/database"
 )
 
+// AuthMiddleware vérifie l'authentification HTTP Basic (user/pass)
+func AuthMiddleware(db database.DatabaseInterface) echo.MiddlewareFunc {
+       return func(next echo.HandlerFunc) echo.HandlerFunc {
+	       return func(c echo.Context) error {
+		       username, password, ok := c.Request().BasicAuth()
+		       if !ok || username == "" || password == "" {
+			       c.Response().Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+			       return c.JSON(http.StatusUnauthorized, map[string]string{"error": "missing or invalid basic auth"})
+		       }
+
+		       var storedToken string
+		       err := db.QueryRow("SELECT token FROM user_tokens WHERE username = ?", username).Scan(&storedToken)
+		       if err != nil {
+			       if err == sql.ErrNoRows {
+				       c.Response().Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+				       return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
+			       }
+			       return c.JSON(http.StatusInternalServerError, map[string]string{"error": "database error"})
+		       }
+
+		       if password != storedToken {
+			       c.Response().Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+			       return c.JSON(http.StatusUnauthorized, map[string]string{"error": "invalid credentials"})
+		       }
+
+		       c.Set("username", username)
+		       return next(c)
+	       }
+       }
+}
+
 type Handler struct {
 	db database.DatabaseInterface
 }

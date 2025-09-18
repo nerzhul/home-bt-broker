@@ -40,7 +40,6 @@ func main() {
 	e.Use(middleware.Recover())
 	e.Use(middleware.CORS())
 
-	// Initialize handlers
 	h := handlers.NewHandler(db)
 
 	// Health check endpoints
@@ -50,21 +49,21 @@ func main() {
 	// API routes
 	api := e.Group("/api/v1")
 	
-	// Token management endpoints
-	api.POST("/tokens", h.CreateToken)
-	api.GET("/tokens", h.GetTokens)
-	api.GET("/tokens/:username", h.GetToken)
-	api.DELETE("/tokens/:username", h.DeleteToken)
+	tokenGroup := api.Group("/tokens", handlers.AuthMiddleware(db))
+	tokenGroup.POST("", h.CreateToken)
+	tokenGroup.GET("", h.GetTokens)
+	tokenGroup.GET("/:username", h.GetToken)
+	tokenGroup.DELETE("/:username", h.DeleteToken)
 
-	// Bluetooth endpoints
-	api.GET("/bluetooth/adapters", btHandler.GetAdapters)
-	api.GET("/bluetooth/adapters/:adapter/devices", btHandler.GetDevices)
-	api.GET("/bluetooth/adapters/:adapter/devices/trusted", btHandler.GetTrustedDevices)
-	api.GET("/bluetooth/adapters/:adapter/devices/connected", btHandler.GetConnectedDevices)
-	api.POST("/bluetooth/adapters/:adapter/devices/:mac/pair", btHandler.PairDevice)
-	api.POST("/bluetooth/adapters/:adapter/devices/:mac/connect", btHandler.ConnectDevice)
-	api.POST("/bluetooth/adapters/:adapter/devices/:mac/trust", btHandler.TrustDevice)
-	api.DELETE("/bluetooth/adapters/:adapter/devices/:mac", btHandler.RemoveDevice)
+	bluetoothGroup := api.Group("/bluetooth", handlers.AuthMiddleware(db))
+	bluetoothGroup.GET("/adapters", btHandler.GetAdapters)
+	bluetoothGroup.GET("/adapters/:adapter/devices", btHandler.GetDevices)
+	bluetoothGroup.GET("/adapters/:adapter/devices/trusted", btHandler.GetTrustedDevices)
+	bluetoothGroup.GET("/adapters/:adapter/devices/connected", btHandler.GetConnectedDevices)
+	bluetoothGroup.POST("/adapters/:adapter/devices/:mac/pair", btHandler.PairDevice)
+	bluetoothGroup.POST("/adapters/:adapter/devices/:mac/connect", btHandler.ConnectDevice)
+	bluetoothGroup.POST("/adapters/:adapter/devices/:mac/trust", btHandler.TrustDevice)
+	bluetoothGroup.DELETE("/adapters/:adapter/devices/:mac", btHandler.RemoveDevice)
 
 	// Start server
 	port := os.Getenv("PORT")
