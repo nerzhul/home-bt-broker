@@ -20,7 +20,7 @@ ARG TARGETARCH
 # Build the application with static linking to avoid SQLite dependencies
 RUN CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH \
     go build -ldflags="-w -s -extldflags '-static'" -tags sqlite_omit_load_extension \
-    -o app ./cmd/main.go
+    -o app ./cmd/home-bt-broker/main.go
 
 # Final stage - use distroless for minimal attack surface
 FROM gcr.io/distroless/static-debian12:latest

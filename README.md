@@ -49,7 +49,7 @@ docker buildx bake
 ### Local Development
 ```bash
 go mod download
-go run ./cmd/main.go
+go run ./cmd/home-bt-broker/main.go
 ```
 
 ## Configuration

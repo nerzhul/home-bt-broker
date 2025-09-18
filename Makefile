@@ -6,11 +6,11 @@ build:
 
 # Build static binary
 build-static:
-	CGO_ENABLED=1 go build -ldflags="-w -s -extldflags '-static'" -tags sqlite_omit_load_extension -o bin/app-static ./cmd/main.go
+	CGO_ENABLED=1 go build -ldflags="-w -s -extldflags '-static'" -tags sqlite_omit_load_extension -o bin/app-static ./cmd/home-bt-broker/main.go
 
 # Run the application
 run:
-	go run ./cmd/main.go
+	go run ./cmd/home-bt-broker/main.go
 
 # Run tests
 test:
