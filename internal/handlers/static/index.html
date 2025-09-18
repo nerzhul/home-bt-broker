@@ -106,10 +106,12 @@
                     devDiv.className = 'device';
                     const mac = device.address || device.Address || '';
                     const isTrusted = trustedSet.has(mac);
-                    devDiv.innerHTML = `<b>Name:</b> ${device.name || device.Name || mac || 'Unknown'}<br><b>MAC:</b> ${mac}<br><span>Trusted: <b style="color:${isTrusted ? 'green' : 'red'}">${isTrusted ? 'Yes' : 'No'}</b></span><br><span class="device-msg"></span>`;
-                    devDiv.style.cursor = 'pointer';
-                    devDiv.title = 'Click to remove this device';
-                    devDiv.onclick = async (e) => {
+                    devDiv.innerHTML = `<b>Name:</b> ${device.name || device.Name || mac || 'Unknown'}<br><b>MAC:</b> ${mac}<br><span>Trusted: <b style="color:${isTrusted ? 'green' : 'red'}">${isTrusted ? 'Yes' : 'No'}</b></span>
+                        <button class="delete-device-btn" style="margin-left:1em;">Delete</button>
+                        <span class="device-msg"></span>`;
+                    const deleteBtn = devDiv.querySelector('.delete-device-btn');
+                    deleteBtn.onclick = async (e) => {
+                        e.stopPropagation();
                         if (!confirm('Are you sure you want to remove this device?')) return;
                         const msg = devDiv.querySelector('.device-msg');
                         msg.textContent = 'Removing...';
