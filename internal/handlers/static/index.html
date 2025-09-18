@@ -65,8 +65,28 @@
                     const div = document.createElement('div');
                     div.className = 'adapter';
                     const mac = adapter.address || adapter.Address || '';
-                    div.innerHTML = `<b>Name:</b> ${adapter.name || adapter.address || 'Unknown'}<br><b>MAC:</b> ${mac}<div class="devices-list"><span class="loader">Loading devices...</span></div>`;
+                    div.innerHTML = `<b>Name:</b> ${adapter.name || adapter.address || 'Unknown'}<br><b>MAC:</b> ${mac}
+                        <form class="add-device-form" style="margin:1em 0;">
+                            <input type="text" name="mac" placeholder="Device MAC address" required pattern="([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}">
+                            <button type="submit">Add (Pair) Device</button>
+                            <span class="add-device-msg"></span>
+                        </form>
+                        <div class="devices-list"><span class="loader">Loading devices...</span></div>`;
                     adaptersDiv.appendChild(div);
+                    // Add device form handler
+                    const addForm = div.querySelector('.add-device-form');
+                    addForm.onsubmit = async (e) => {
+                        e.preventDefault();
+                        const input = addForm.querySelector('input[name="mac"]');
+                        const msg = addForm.querySelector('.add-device-msg');
+                        msg.textContent = 'Pairing...';
+                        const resp = await fetch(`/api/v1/bluetooth/adapters/${mac}/devices/${input.value}/pair`, {
+                            method: 'POST', credentials: 'include'
+                        });
+                        const res = await resp.json();
+                        msg.textContent = resp.ok ? 'Pairing initiated!' : (res.error || 'Error');
+                        if (resp.ok) setTimeout(() => fetchDevicesForAdapter(mac, div.querySelector('.devices-list')), 1500);
+                    };
                     fetchDevicesForAdapter(mac, div.querySelector('.devices-list'));
                 }
             } catch (e) {
