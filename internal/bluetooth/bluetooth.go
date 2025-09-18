@@ -9,7 +9,7 @@ import (
 
 const (
 	BluezService        = "org.bluez"
-	BluezObjectPath     = "/org/bluez"
+	BluezObjectPath     = "/"
 	AdapterInterface    = "org.bluez.Adapter1"
 	DeviceInterface     = "org.bluez.Device1"
 	AgentManagerIface   = "org.bluez.AgentManager1"
