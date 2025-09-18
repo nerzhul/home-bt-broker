@@ -35,6 +35,19 @@
         .loader {
             color: #888;
         }
+
+        .devices-list {
+            margin-top: 1em;
+        }
+
+        .device {
+            background: #eef6fa;
+            border-left: 4px solid #3498db;
+            margin: 0.5em 0 0.5em 1.5em;
+            padding: 0.7em 1em;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px #0001;
+        }
     </style>
 </head>
 
@@ -71,6 +84,8 @@
                             <button type="submit">Add (Pair) Device</button>
                             <span class="add-device-msg"></span>
                         </form>
+                        <hr style="border:none;border-top:1px solid #d0d7de;margin:1em 0 0.5em 0;">
+                        <div style="font-size:0.98em;color:#555;margin-bottom:0.5em;font-weight:bold;">Devices list</div>
                         <div class="devices-list"><span class="loader">Loading devices...</span></div>`;
                     adaptersDiv.appendChild(div);
                     // Add device form handler
