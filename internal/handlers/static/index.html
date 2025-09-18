@@ -43,18 +43,13 @@
     <div id="adapters">
         <span class="loader">Loading...</span>
     </div>
-    <h2>All Bluetooth Devices</h2>
-    <div id="devices">
-        <span class="loader">Loading...</span>
-    </div>
+    <!-- Devices will be shown under each adapter -->
     <script>
         async function fetchAdapters() {
             const adaptersDiv = document.getElementById('adapters');
             adaptersDiv.innerHTML = '<span class="loader">Loading...</span>';
             try {
-                const resp = await fetch('/api/v1/bluetooth/adapters', {
-                    credentials: 'include'
-                });
+                const resp = await fetch('/api/v1/bluetooth/adapters', { credentials: 'include' });
                 if (!resp.ok) {
                     const err = await resp.json();
                     adaptersDiv.innerHTML = `<span class="error">Error: ${err.error || resp.statusText}</span>`;
@@ -66,90 +61,72 @@
                     return;
                 }
                 adaptersDiv.innerHTML = '';
-                data.adapters.forEach(adapter => {
+                for (const adapter of data.adapters) {
                     const div = document.createElement('div');
                     div.className = 'adapter';
-                    div.innerHTML = `<b>Name:</b> ${adapter.name || adapter.address || 'Unknown'}<br><b>MAC:</b> ${adapter.address || 'N/A'}`;
+                    const mac = adapter.address || adapter.Address || '';
+                    div.innerHTML = `<b>Name:</b> ${adapter.name || adapter.address || 'Unknown'}<br><b>MAC:</b> ${mac}<div class="devices-list"><span class="loader">Loading devices...</span></div>`;
                     adaptersDiv.appendChild(div);
-                });
+                    fetchDevicesForAdapter(mac, div.querySelector('.devices-list'));
+                }
             } catch (e) {
                 adaptersDiv.innerHTML = `<span class="error">Network error: ${e}</span>`;
             }
         }
-        async function fetchDevices() {
-            const devicesDiv = document.getElementById('devices');
-            devicesDiv.innerHTML = '<span class="loader">Loading...</span>';
+
+        async function fetchDevicesForAdapter(adapterMac, container) {
+            container.innerHTML = '<span class="loader">Loading...</span>';
             try {
-                // Fetch all adapters first
-                const adaptersResp = await fetch('/api/v1/bluetooth/adapters', { credentials: 'include' });
-                if (!adaptersResp.ok) {
-                    const err = await adaptersResp.json();
-                    devicesDiv.innerHTML = `<span class="error">Error: ${err.error || adaptersResp.statusText}</span>`;
+                // All devices
+                const resp = await fetch(`/api/v1/bluetooth/adapters/${adapterMac}/devices`, { credentials: 'include' });
+                if (!resp.ok) {
+                    container.innerHTML = `<span class="error">Error: ${resp.statusText}</span>`;
                     return;
                 }
-                const adaptersData = await adaptersResp.json();
-                if (!adaptersData.adapters || !adaptersData.adapters.length) {
-                    devicesDiv.innerHTML = '<span>No Bluetooth interface detected.</span>';
-                    return;
-                }
-                // Fetch trusted devices for all adapters (to know which are trusted)
-                let allDevices = [];
+                const data = await resp.json();
+                // Trusted devices
+                const trustedResp = await fetch(`/api/v1/bluetooth/adapters/${adapterMac}/devices/trusted`, { credentials: 'include' });
                 let trustedSet = new Set();
-                for (const adapter of adaptersData.adapters) {
-                    const mac = adapter.address || adapter.Address || '';
-                    if (!mac) continue;
-                    // All devices
-                    const resp = await fetch(`/api/v1/bluetooth/adapters/${mac}/devices`, { credentials: 'include' });
-                    if (!resp.ok) continue;
-                    const data = await resp.json();
-                    if (data.devices && data.devices.length) {
-                        allDevices = allDevices.concat(data.devices.map(d => ({ ...d, adapterMac: mac })));
-                    }
-                    // Trusted devices
-                    const trustedResp = await fetch(`/api/v1/bluetooth/adapters/${mac}/devices/trusted`, { credentials: 'include' });
-                    if (trustedResp.ok) {
-                        const trustedData = await trustedResp.json();
-                        if (trustedData.trusted_devices && trustedData.trusted_devices.length) {
-                            trustedData.trusted_devices.forEach(td => {
-                                const tmac = td.address || td.Address || '';
-                                if (tmac) trustedSet.add(mac + '|' + tmac);
-                            });
-                        }
+                if (trustedResp.ok) {
+                    const trustedData = await trustedResp.json();
+                    if (trustedData.trusted_devices && trustedData.trusted_devices.length) {
+                        trustedData.trusted_devices.forEach(td => {
+                            const tmac = td.address || td.Address || '';
+                            if (tmac) trustedSet.add(tmac);
+                        });
                     }
                 }
-                if (!allDevices.length) {
-                    devicesDiv.innerHTML = '<span>No device found.</span>';
+                if (!data.devices || !data.devices.length) {
+                    container.innerHTML = '<span>No device found.</span>';
                     return;
                 }
-                devicesDiv.innerHTML = '';
-                allDevices.forEach(device => {
+                container.innerHTML = '';
+                data.devices.forEach(device => {
                     const devDiv = document.createElement('div');
                     devDiv.className = 'device';
                     const mac = device.address || device.Address || '';
-                    const isTrusted = trustedSet.has(device.adapterMac + '|' + mac);
-                    devDiv.innerHTML = `<b>Name:</b> ${device.name || device.Name || mac || 'Unknown'}<br><b>MAC:</b> ${mac}<br><b>Adapter:</b> ${device.adapterMac}<br><span>Trusted: <b style="color:${isTrusted ? 'green' : 'red'}">${isTrusted ? 'Yes' : 'No'}</b></span><br><span class="device-msg"></span>`;
+                    const isTrusted = trustedSet.has(mac);
+                    devDiv.innerHTML = `<b>Name:</b> ${device.name || device.Name || mac || 'Unknown'}<br><b>MAC:</b> ${mac}<br><span>Trusted: <b style="color:${isTrusted ? 'green' : 'red'}">${isTrusted ? 'Yes' : 'No'}</b></span><br><span class="device-msg"></span>`;
                     devDiv.style.cursor = 'pointer';
                     devDiv.title = 'Click to remove this device';
                     devDiv.onclick = async (e) => {
                         if (!confirm('Are you sure you want to remove this device?')) return;
                         const msg = devDiv.querySelector('.device-msg');
                         msg.textContent = 'Removing...';
-                        const resp = await fetch(`/api/v1/bluetooth/adapters/${device.adapterMac}/devices/${mac}`, {
+                        const resp = await fetch(`/api/v1/bluetooth/adapters/${adapterMac}/devices/${mac}`, {
                             method: 'DELETE', credentials: 'include'
                         });
                         const res = await resp.json();
                         msg.textContent = resp.ok ? 'Removed!' : (res.error || 'Error');
-                        if (resp.ok) setTimeout(fetchDevices, 1000);
+                        if (resp.ok) setTimeout(() => fetchDevicesForAdapter(adapterMac, container), 1000);
                     };
-                    devicesDiv.appendChild(devDiv);
+                    container.appendChild(devDiv);
                 });
             } catch (e) {
-                devicesDiv.innerHTML = `<span class="error">Network error: ${e}</span>`;
+                container.innerHTML = `<span class="error">Network error: ${e}</span>`;
             }
         }
-
         fetchAdapters();
-        fetchDevices();
     </script>
 </body>
 
