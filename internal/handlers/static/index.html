@@ -1,53 +1,79 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bluetooth Interfaces</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 2em; background: #f7f7f7; }
-        h1 { color: #2c3e50; }
-        #adapters { margin-top: 2em; }
-        .adapter { background: #fff; border-radius: 6px; box-shadow: 0 2px 6px #0001; padding: 1em; margin-bottom: 1em; }
-        .error { color: #c0392b; }
-        .loader { color: #888; }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2em;
+            background: #f7f7f7;
+        }
+
+        h1 {
+            color: #2c3e50;
+        }
+
+        #adapters {
+            margin-top: 2em;
+        }
+
+        .adapter {
+            background: #fff;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px #0001;
+            padding: 1em;
+            margin-bottom: 1em;
+        }
+
+        .error {
+            color: #c0392b;
+        }
+
+        .loader {
+            color: #888;
+        }
     </style>
 </head>
+
 <body>
-        <h1>Bluetooth Interfaces</h1>
-        <div id="adapters">
-            <span class="loader">Loading...</span>
-        </div>
+    <h1>Bluetooth Interfaces</h1>
+    <div id="adapters">
+        <span class="loader">Loading...</span>
+    </div>
     <script>
-    async function fetchAdapters() {
-        const adaptersDiv = document.getElementById('adapters');
-        adaptersDiv.innerHTML = '<span class="loader">Loading...</span>';
-        try {
-            const resp = await fetch('/api/v1/bluetooth/adapters', {
-                credentials: 'include'
-            });
-            if (!resp.ok) {
-                const err = await resp.json();
-                adaptersDiv.innerHTML = `<span class="error">Error: ${err.error || resp.statusText}</span>`;
-                return;
+        async function fetchAdapters() {
+            const adaptersDiv = document.getElementById('adapters');
+            adaptersDiv.innerHTML = '<span class="loader">Loading...</span>';
+            try {
+                const resp = await fetch('/api/v1/bluetooth/adapters', {
+                    credentials: 'include'
+                });
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    adaptersDiv.innerHTML = `<span class="error">Error: ${err.error || resp.statusText}</span>`;
+                    return;
+                }
+                const data = await resp.json();
+                if (!data.adapters || !data.adapters.length) {
+                    adaptersDiv.innerHTML = '<span>No Bluetooth interface detected.</span>';
+                    return;
+                }
+                adaptersDiv.innerHTML = '';
+                data.adapters.forEach(adapter => {
+                    const div = document.createElement('div');
+                    div.className = 'adapter';
+                    div.innerHTML = `<b>Name:</b> ${adapter.name || adapter.Address || 'Unknown'}<br><b>MAC:</b> ${adapter.Address || 'N/A'}`;
+                    adaptersDiv.appendChild(div);
+                });
+            } catch (e) {
+                adaptersDiv.innerHTML = `<span class="error">Network error: ${e}</span>`;
             }
-            const data = await resp.json();
-            if (!data.adapters || !data.adapters.length) {
-                adaptersDiv.innerHTML = '<span>No Bluetooth interface detected.</span>';
-                return;
-            }
-            adaptersDiv.innerHTML = '';
-            data.adapters.forEach(adapter => {
-                const div = document.createElement('div');
-                div.className = 'adapter';
-                div.innerHTML = `<b>Name:</b> ${adapter.name || adapter.Address || 'Unknown'}<br><b>MAC:</b> ${adapter.Address || 'N/A'}`;
-                adaptersDiv.appendChild(div);
-            });
-        } catch (e) {
-            adaptersDiv.innerHTML = `<span class="error">Network error: ${e}</span>`;
         }
-    }
-    fetchAdapters();
+        fetchAdapters();
     </script>
 </body>
+
 </html>
