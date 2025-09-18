@@ -35,6 +35,8 @@ func main() {
 	// Create Echo instance
 	e := echo.New()
 
+	e.File("/", "internal/handlers/static/index.html")
+
 	// Middleware
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
