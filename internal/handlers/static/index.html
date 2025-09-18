@@ -127,7 +127,20 @@
                     devDiv.className = 'device';
                     const mac = device.address || device.Address || '';
                     const isTrusted = trustedSet.has(device.adapterMac + '|' + mac);
-                    devDiv.innerHTML = `<b>Name:</b> ${device.name || device.Name || mac || 'Unknown'}<br><b>MAC:</b> ${mac}<br><b>Adapter:</b> ${device.adapterMac}<br><span>Trusted: <b style="color:${isTrusted ? 'green' : 'red'}">${isTrusted ? 'Yes' : 'No'}</b></span>`;
+                    devDiv.innerHTML = `<b>Name:</b> ${device.name || device.Name || mac || 'Unknown'}<br><b>MAC:</b> ${mac}<br><b>Adapter:</b> ${device.adapterMac}<br><span>Trusted: <b style="color:${isTrusted ? 'green' : 'red'}">${isTrusted ? 'Yes' : 'No'}</b></span><br><span class="device-msg"></span>`;
+                    devDiv.style.cursor = 'pointer';
+                    devDiv.title = 'Click to remove this device';
+                    devDiv.onclick = async (e) => {
+                        if (!confirm('Are you sure you want to remove this device?')) return;
+                        const msg = devDiv.querySelector('.device-msg');
+                        msg.textContent = 'Removing...';
+                        const resp = await fetch(`/api/v1/bluetooth/adapters/${device.adapterMac}/devices/${mac}`, {
+                            method: 'DELETE', credentials: 'include'
+                        });
+                        const res = await resp.json();
+                        msg.textContent = resp.ok ? 'Removed!' : (res.error || 'Error');
+                        if (resp.ok) setTimeout(fetchDevices, 1000);
+                    };
                     devicesDiv.appendChild(devDiv);
                 });
             } catch (e) {
