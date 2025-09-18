@@ -99,14 +99,14 @@
                     const mac = adapter.address || adapter.Address || '';
                     if (!mac) continue;
                     // All devices
-                    const resp = await fetch(`/api/v1/bluetooth/adapters/${encodeURIComponent(mac)}/devices`, { credentials: 'include' });
+                    const resp = await fetch(`/api/v1/bluetooth/adapters/${mac}/devices`, { credentials: 'include' });
                     if (!resp.ok) continue;
                     const data = await resp.json();
                     if (data.devices && data.devices.length) {
                         allDevices = allDevices.concat(data.devices.map(d => ({ ...d, adapterMac: mac })));
                     }
                     // Trusted devices
-                    const trustedResp = await fetch(`/api/v1/bluetooth/adapters/${encodeURIComponent(mac)}/devices/trusted`, { credentials: 'include' });
+                    const trustedResp = await fetch(`/api/v1/bluetooth/adapters/${mac}/devices/trusted`, { credentials: 'include' });
                     if (trustedResp.ok) {
                         const trustedData = await trustedResp.json();
                         if (trustedData.trusted_devices && trustedData.trusted_devices.length) {
