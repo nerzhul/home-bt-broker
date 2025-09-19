@@ -85,6 +85,11 @@
         async function fetchAdapters() {
             const adaptersDiv = document.getElementById('adapters');
             adaptersDiv.innerHTML = '<span class="loader">Loading...</span>';
+            let scanIntervals = window._scanIntervals || {};
+            window._scanIntervals = scanIntervals;
+            // Clear previous intervals
+            Object.values(scanIntervals).forEach(clearInterval);
+            scanIntervals = {};
             try {
                 const resp = await fetch('/api/v1/bluetooth/adapters', { credentials: 'include' });
                 if (!resp.ok) {
@@ -141,9 +146,30 @@
                         });
                         const res = await resp.json();
                         msg.textContent = resp.ok ? 'Scan updated!' : (res.error || 'Error');
-                        if (resp.ok) setTimeout(fetchAdapters, 1000);
+                        // Start or stop refresh depending on new state
+                        if (resp.ok) {
+                            if (!adapter.discovering) {
+                                // Just activated scan, start interval
+                                scanIntervals[mac] = setInterval(() => {
+                                    fetchDevicesForAdapter(mac, div.querySelector('.devices-list'), div);
+                                }, 1000);
+                            } else {
+                                // Just deactivated scan, clear interval
+                                if (scanIntervals[mac]) {
+                                    clearInterval(scanIntervals[mac]);
+                                    delete scanIntervals[mac];
+                                }
+                            }
+                            setTimeout(fetchAdapters, 1000);
+                        }
                     };
                     fetchDevicesForAdapter(mac, div.querySelector('.devices-list'), div);
+                    // Refresh devices if scan is active
+                    if (adapter.discovering) {
+                        scanIntervals[mac] = setInterval(() => {
+                            fetchDevicesForAdapter(mac, div.querySelector('.devices-list'), div);
+                        }, 1000);
+                    }
                 }
             } catch (e) {
                 adaptersDiv.innerHTML = `<span class="error">Network error: ${e}</span>`;
@@ -177,7 +203,14 @@
                     return;
                 }
                 container.innerHTML = '';
-                data.devices.forEach(device => {
+                // Sort devices: paired first, then others
+                const sortedDevices = [...data.devices].sort((a, b) => {
+                    const aPaired = a.paired || a.Paired;
+                    const bPaired = b.paired || b.Paired;
+                    if (aPaired === bPaired) return 0;
+                    return aPaired ? -1 : 1;
+                });
+                sortedDevices.forEach(device => {
                     const devDiv = document.createElement('div');
                     let classes = ['device'];
                     // Status logic
