@@ -109,11 +109,6 @@
                         <span>Scan: <b style="color:${adapter.discovering ? 'green' : 'red'}">${adapter.discovering ? 'Yes' : 'No'}</b></span>
                         <button class="toggle-discovering-btn" style="margin-left:0.5em;">Toggle</button>
                         <span class="scan-msg"></span>
-                        <form class="add-device-form" style="margin:1em 0;">
-                            <input type="text" name="mac" placeholder="Device MAC address" required pattern="([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}">
-                            <button type="submit">Add (Pair) Device</button>
-                            <span class="add-device-msg"></span>
-                        </form>
                         <hr style="border:none;border-top:1px solid #d0d7de;margin:1em 0 0.5em 0;">
                         <div style="font-size:0.98em;color:#555;margin-bottom:0.5em;font-weight:bold;">Devices list</div>
                         <div class="devices-list"><span class="loader">Loading devices...</span></div>`;
@@ -148,28 +143,14 @@
                         msg.textContent = resp.ok ? 'Scan updated!' : (res.error || 'Error');
                         if (resp.ok) setTimeout(fetchAdapters, 1000);
                     };
-                    // Add device form handler
-                    const addForm = div.querySelector('.add-device-form');
-                    addForm.onsubmit = async (e) => {
-                        e.preventDefault();
-                        const input = addForm.querySelector('input[name="mac"]');
-                        const msg = addForm.querySelector('.add-device-msg');
-                        msg.textContent = 'Pairing...';
-                        const resp = await fetch(`/api/v1/bluetooth/adapters/${mac}/devices/${input.value}/pair`, {
-                            method: 'POST', credentials: 'include'
-                        });
-                        const res = await resp.json();
-                        msg.textContent = resp.ok ? 'Pairing initiated!' : (res.error || 'Error');
-                        if (resp.ok) setTimeout(() => fetchDevicesForAdapter(mac, div.querySelector('.devices-list')), 1500);
-                    };
-                    fetchDevicesForAdapter(mac, div.querySelector('.devices-list'));
+                    fetchDevicesForAdapter(mac, div.querySelector('.devices-list'), div);
                 }
             } catch (e) {
                 adaptersDiv.innerHTML = `<span class="error">Network error: ${e}</span>`;
             }
         }
 
-        async function fetchDevicesForAdapter(adapterMac, container) {
+        async function fetchDevicesForAdapter(adapterMac, container, adapterDiv) {
             container.innerHTML = '<span class="loader">Loading...</span>';
             try {
                 // All devices
@@ -218,21 +199,45 @@
                         <span>Paired: <b style="color:${isPaired ? 'green' : 'red'}">${isPaired ? 'Yes' : 'No'}</b></span>
                         <span style="margin-left:1em;">Connected: <b style="color:${isConnected ? 'green' : 'red'}">${isConnected ? 'Yes' : 'No'}</b></span>
                         <span style="margin-left:1em;">Trusted: <b style="color:${isTrusted ? 'green' : 'red'}">${isTrusted ? 'Yes' : 'No'}</b></span>
-                        <button class="delete-device-btn" style="margin-left:1em;">Delete</button>
                         <span class="device-msg"></span>`;
-                    const deleteBtn = devDiv.querySelector('.delete-device-btn');
-                    deleteBtn.onclick = async (e) => {
-                        e.stopPropagation();
-                        if (!confirm('Are you sure you want to remove this device?')) return;
-                        const msg = devDiv.querySelector('.device-msg');
-                        msg.textContent = 'Removing...';
-                        const resp = await fetch(`/api/v1/bluetooth/adapters/${adapterMac}/devices/${mac}`, {
-                            method: 'DELETE', credentials: 'include'
-                        });
-                        const res = await resp.json();
-                        msg.textContent = resp.ok ? 'Removed!' : (res.error || 'Error');
-                        if (resp.ok) setTimeout(() => fetchDevicesForAdapter(adapterMac, container), 1000);
-                    };
+                    // Add (Pair) button if not paired
+                    if (!isPaired) {
+                        const pairBtn = document.createElement('button');
+                        pairBtn.textContent = 'Pair';
+                        pairBtn.className = 'pair-device-btn';
+                        pairBtn.style.marginLeft = '1em';
+                        pairBtn.onclick = async (e) => {
+                            e.stopPropagation();
+                            const msg = devDiv.querySelector('.device-msg');
+                            msg.textContent = 'Pairing...';
+                            const resp = await fetch(`/api/v1/bluetooth/adapters/${adapterMac}/devices/${mac}/pair`, {
+                                method: 'POST', credentials: 'include'
+                            });
+                            const res = await resp.json();
+                            msg.textContent = resp.ok ? 'Pairing initiated!' : (res.error || 'Error');
+                            if (resp.ok) setTimeout(() => fetchDevicesForAdapter(adapterMac, container, adapterDiv), 1500);
+                        };
+                        devDiv.appendChild(pairBtn);
+                    } else {
+                        // Only show delete button for paired devices
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.textContent = 'Delete';
+                        deleteBtn.className = 'delete-device-btn';
+                        deleteBtn.style.marginLeft = '1em';
+                        deleteBtn.onclick = async (e) => {
+                            e.stopPropagation();
+                            if (!confirm('Are you sure you want to remove this device?')) return;
+                            const msg = devDiv.querySelector('.device-msg');
+                            msg.textContent = 'Removing...';
+                            const resp = await fetch(`/api/v1/bluetooth/adapters/${adapterMac}/devices/${mac}`, {
+                                method: 'DELETE', credentials: 'include'
+                            });
+                            const res = await resp.json();
+                            msg.textContent = resp.ok ? 'Removed!' : (res.error || 'Error');
+                            if (resp.ok) setTimeout(() => fetchDevicesForAdapter(adapterMac, container, adapterDiv), 1000);
+                        };
+                        devDiv.appendChild(deleteBtn);
+                    }
                     container.appendChild(devDiv);
                 });
             } catch (e) {
