@@ -7,9 +7,9 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/nerzhul/home-bt-broker/internal/database"
 	"github.com/nerzhul/home-bt-broker/internal/handlers"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func main() {
@@ -32,6 +32,19 @@ func main() {
 	}
 	defer btHandler.Close()
 
+	// Log Bluetooth adapters at startup
+	adapters, err := btHandler.GetAdaptersRaw()
+	if err != nil {
+		log.Printf("Could not list Bluetooth adapters: %v", err)
+	} else if len(adapters) == 0 {
+		log.Printf("No Bluetooth adapters found.")
+	} else {
+		log.Printf("Bluetooth adapters detected:")
+		for _, a := range adapters {
+			log.Printf("- Name: %s, Address: %s, Powered: %v, Discoverable: %v, Discovering: %v", a.Name, a.Address, a.Powered, a.Discoverable, a.Discovering)
+		}
+	}
+
 	// Create Echo instance
 	e := echo.New()
 
@@ -50,7 +63,7 @@ func main() {
 
 	// API routes
 	api := e.Group("/api/v1")
-	
+
 	tokenGroup := api.Group("/tokens", handlers.AuthMiddleware(db))
 	tokenGroup.POST("", h.CreateToken)
 	tokenGroup.GET("", h.GetTokens)

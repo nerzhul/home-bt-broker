@@ -47,6 +47,11 @@ func (bh *BluetoothHandler) GetAdapters(c echo.Context) error {
 	})
 }
 
+// GetAdaptersRaw returns all Bluetooth adapters (raw, for internal use)
+func (bh *BluetoothHandler) GetAdaptersRaw() ([]bluetooth.Adapter, error) {
+	return bh.btManager.GetAdapters()
+}
+
 // GetDevices returns all devices for a specific adapter by MAC address
 func (bh *BluetoothHandler) GetDevices(c echo.Context) error {
 	adapterMAC := c.Param("adapter")
