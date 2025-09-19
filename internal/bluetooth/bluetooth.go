@@ -2,6 +2,7 @@ package bluetooth
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/godbus/dbus/v5"
@@ -18,7 +19,8 @@ const (
 )
 
 type BluetoothManager struct {
-	conn *dbus.Conn
+	conn      *dbus.Conn
+	agentPath dbus.ObjectPath
 }
 
 type Adapter struct {
@@ -47,12 +49,25 @@ func NewBluetoothManager() (*BluetoothManager, error) {
 		return nil, fmt.Errorf("failed to connect to D-Bus: %w", err)
 	}
 
-	return &BluetoothManager{conn: conn}, nil
+	bm := &BluetoothManager{
+		conn:      conn,
+		agentPath: "/org/bluez/AutoPairAgent",
+	}
+
+	// Register the agent
+	if err := bm.registerAgent(); err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to register agent: %w", err)
+	}
+
+	return bm, nil
 }
 
 // Close closes the D-Bus connection
 func (bm *BluetoothManager) Close() {
 	if bm.conn != nil {
+		// Unregister agent before closing
+		bm.unregisterAgent()
 		bm.conn.Close()
 	}
 }
@@ -277,4 +292,108 @@ func (bm *BluetoothManager) SetDiscovering(adapterPath string, enable bool) erro
 	       return fmt.Errorf("failed to set discovering: %w", call.Err)
        }
        return nil
+}
+
+// Agent methods for automatic pairing authentication
+//
+// How the agent works:
+// 1. When BluetoothManager is created, registerAgent() is called automatically
+// 2. The agent is registered with BlueZ as the default agent with "NoInputNoOutput" capability
+// 3. When a device pairing is initiated (via PairDevice), BlueZ will call the agent methods
+// 4. The agent automatically accepts/provides authentication without user interaction:
+//    - PIN codes: provides "0000"
+//    - Passkeys: provides 0
+//    - Confirmations: auto-confirms
+//    - Authorizations: auto-authorizes
+// 5. This enables seamless pairing for devices that support automatic authentication
+
+// registerAgent registers the Bluetooth agent for automatic authentication
+func (bm *BluetoothManager) registerAgent() error {
+	log.Printf("Bluetooth Agent: Registering agent at path %s", bm.agentPath)
+	
+	// Export the agent object
+	err := bm.conn.Export(bm, bm.agentPath, AgentInterface)
+	if err != nil {
+		return fmt.Errorf("failed to export agent: %w", err)
+	}
+
+	// Register with agent manager
+	obj := bm.conn.Object(BluezService, "/org/bluez")
+	call := obj.Call(AgentManagerIface+".RegisterAgent", 0, bm.agentPath, "NoInputNoOutput")
+	if call.Err != nil {
+		return fmt.Errorf("failed to register agent: %w", call.Err)
+	}
+
+	// Request default agent
+	call = obj.Call(AgentManagerIface+".RequestDefaultAgent", 0, bm.agentPath)
+	if call.Err != nil {
+		return fmt.Errorf("failed to request default agent: %w", call.Err)
+	}
+
+	log.Printf("Bluetooth Agent: Successfully registered and set as default agent")
+	return nil
+}
+
+// unregisterAgent unregisters the Bluetooth agent
+func (bm *BluetoothManager) unregisterAgent() error {
+	log.Printf("Bluetooth Agent: Unregistering agent at path %s", bm.agentPath)
+	obj := bm.conn.Object(BluezService, "/org/bluez")
+	call := obj.Call(AgentManagerIface+".UnregisterAgent", 0, bm.agentPath)
+	return call.Err
+}
+
+// Agent interface implementations - automatically accept all authentication
+
+// RequestPinCode automatically provides a default PIN
+func (bm *BluetoothManager) RequestPinCode(device dbus.ObjectPath) (string, *dbus.Error) {
+	log.Printf("Bluetooth Agent: RequestPinCode for device %s - providing default PIN: 0000", device)
+	return "0000", nil
+}
+
+// DisplayPinCode accepts the displayed PIN
+func (bm *BluetoothManager) DisplayPinCode(device dbus.ObjectPath, pincode string) *dbus.Error {
+	log.Printf("Bluetooth Agent: DisplayPinCode for device %s - PIN: %s", device, pincode)
+	return nil
+}
+
+// RequestPasskey automatically provides a default passkey
+func (bm *BluetoothManager) RequestPasskey(device dbus.ObjectPath) (uint32, *dbus.Error) {
+	log.Printf("Bluetooth Agent: RequestPasskey for device %s - providing default passkey: 0", device)
+	return 0, nil
+}
+
+// DisplayPasskey accepts the displayed passkey
+func (bm *BluetoothManager) DisplayPasskey(device dbus.ObjectPath, passkey uint32, entered uint16) *dbus.Error {
+	log.Printf("Bluetooth Agent: DisplayPasskey for device %s - passkey: %d, entered: %d", device, passkey, entered)
+	return nil
+}
+
+// RequestConfirmation automatically confirms pairing
+func (bm *BluetoothManager) RequestConfirmation(device dbus.ObjectPath, passkey uint32) *dbus.Error {
+	log.Printf("Bluetooth Agent: RequestConfirmation for device %s - passkey: %d - auto-confirming", device, passkey)
+	return nil
+}
+
+// RequestAuthorization automatically authorizes pairing
+func (bm *BluetoothManager) RequestAuthorization(device dbus.ObjectPath) *dbus.Error {
+	log.Printf("Bluetooth Agent: RequestAuthorization for device %s - auto-authorizing", device)
+	return nil
+}
+
+// AuthorizeService automatically authorizes service usage
+func (bm *BluetoothManager) AuthorizeService(device dbus.ObjectPath, uuid string) *dbus.Error {
+	log.Printf("Bluetooth Agent: AuthorizeService for device %s, service UUID: %s - auto-authorizing", device, uuid)
+	return nil
+}
+
+// Cancel handles cancellation of pairing process
+func (bm *BluetoothManager) Cancel() *dbus.Error {
+	log.Printf("Bluetooth Agent: Cancel called - pairing process cancelled")
+	return nil
+}
+
+// Release handles agent release
+func (bm *BluetoothManager) Release() *dbus.Error {
+	log.Printf("Bluetooth Agent: Release called - agent being released")
+	return nil
 }
