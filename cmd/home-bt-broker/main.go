@@ -10,6 +10,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/nerzhul/home-bt-broker/internal/database"
 	"github.com/nerzhul/home-bt-broker/internal/handlers"
+	"github.com/nerzhul/home-bt-broker/internal/wireplumber"
 )
 
 func main() {
@@ -23,6 +24,17 @@ func main() {
 	// Run migrations
 	if err := database.RunMigrations(db); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
+	}
+
+	// Initialize WirePlumber configuration manager
+	wpConfigManager, err := wireplumber.NewConfigManager()
+	if err != nil {
+		log.Fatalf("Failed to initialize WirePlumber config manager: %v", err)
+	}
+
+	// Ensure WirePlumber configuration exists
+	if err := wpConfigManager.EnsureConfig(); err != nil {
+		log.Printf("Warning: Failed to setup WirePlumber configuration: %v", err)
 	}
 
 	// Initialize Bluetooth handler
