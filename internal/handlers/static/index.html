@@ -48,6 +48,30 @@
             border-radius: 4px;
             box-shadow: 0 1px 3px #0001;
         }
+
+        .device.paired {
+            background: #dbeafe;
+            /* pale blue */
+            border-left-color: #60a5fa;
+        }
+
+        .device.unpaired {
+            background: #fef9c3;
+            /* pale yellow */
+            border-left-color: #fde047;
+        }
+
+        .device.trusted {
+            background: #93c5fd;
+            /* deeper blue */
+            border-left-color: #2563eb;
+        }
+
+        .device.connected {
+            background: #bbf7d0;
+            /* pale green */
+            border-left-color: #22c55e;
+        }
     </style>
 </head>
 
@@ -174,10 +198,26 @@
                 container.innerHTML = '';
                 data.devices.forEach(device => {
                     const devDiv = document.createElement('div');
-                    devDiv.className = 'device';
+                    let classes = ['device'];
+                    // Status logic
+                    const isPaired = device.paired || device.Paired;
+                    const isConnected = device.connected || device.Connected;
+                    const isTrusted = trustedSet.has(device.address || device.Address || '');
+                    if (isConnected) {
+                        classes.push('connected');
+                    } else if (isTrusted) {
+                        classes.push('trusted');
+                    } else if (isPaired) {
+                        classes.push('paired');
+                    } else {
+                        classes.push('unpaired');
+                    }
+                    devDiv.className = classes.join(' ');
                     const mac = device.address || device.Address || '';
-                    const isTrusted = trustedSet.has(mac);
-                    devDiv.innerHTML = `<b>Name:</b> ${device.name || device.Name || mac || 'Unknown'}<br><b>MAC:</b> ${mac}<br><span>Trusted: <b style="color:${isTrusted ? 'green' : 'red'}">${isTrusted ? 'Yes' : 'No'}</b></span>
+                    devDiv.innerHTML = `<b>Name:</b> ${device.name || device.Name || mac || 'Unknown'}<br><b>MAC:</b> ${mac}<br>
+                        <span>Paired: <b style="color:${isPaired ? 'green' : 'red'}">${isPaired ? 'Yes' : 'No'}</b></span>
+                        <span style="margin-left:1em;">Connected: <b style="color:${isConnected ? 'green' : 'red'}">${isConnected ? 'Yes' : 'No'}</b></span>
+                        <span style="margin-left:1em;">Trusted: <b style="color:${isTrusted ? 'green' : 'red'}">${isTrusted ? 'Yes' : 'No'}</b></span>
                         <button class="delete-device-btn" style="margin-left:1em;">Delete</button>
                         <span class="device-msg"></span>`;
                     const deleteBtn = devDiv.querySelector('.delete-device-btn');
