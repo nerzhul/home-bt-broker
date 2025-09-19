@@ -251,8 +251,28 @@
                             if (resp.ok) setTimeout(() => fetchDevicesForAdapter(adapterMac, container, adapterDiv), 1500);
                         };
                         devDiv.appendChild(pairBtn);
-                    } else {
-                        // Only show delete button for paired devices
+                    }
+                    // Add Trust button if paired and not trusted
+                    if (isPaired && !isTrusted) {
+                        const trustBtn = document.createElement('button');
+                        trustBtn.textContent = 'Trust';
+                        trustBtn.className = 'trust-device-btn';
+                        trustBtn.style.marginLeft = '1em';
+                        trustBtn.onclick = async (e) => {
+                            e.stopPropagation();
+                            const msg = devDiv.querySelector('.device-msg');
+                            msg.textContent = 'Trusting...';
+                            const resp = await fetch(`/api/v1/bluetooth/adapters/${adapterMac}/devices/${mac}/trust`, {
+                                method: 'POST', credentials: 'include'
+                            });
+                            const res = await resp.json();
+                            msg.textContent = resp.ok ? 'Device trusted!' : (res.error || 'Error');
+                            if (resp.ok) setTimeout(() => fetchDevicesForAdapter(adapterMac, container, adapterDiv), 1000);
+                        };
+                        devDiv.appendChild(trustBtn);
+                    }
+                    // Only show delete button for paired devices
+                    if (isPaired) {
                         const deleteBtn = document.createElement('button');
                         deleteBtn.textContent = 'Delete';
                         deleteBtn.className = 'delete-device-btn';
