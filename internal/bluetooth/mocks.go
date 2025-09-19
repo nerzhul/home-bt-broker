@@ -240,6 +240,36 @@ func (_m *MockBluetoothManager) TrustDevice(adapterPath string, macAddress strin
 	return r0
 }
 
+// SetDiscoverable provides a mock function with given fields: adapterPath, enable
+func (_m *MockBluetoothManager) SetDiscoverable(adapterPath string, enable bool) error {
+       ret := _m.Called(adapterPath, enable)
+       if len(ret) == 0 {
+	       panic("no return value specified for SetDiscoverable")
+       }
+       var r0 error
+       if rf, ok := ret.Get(0).(func(string, bool) error); ok {
+	       r0 = rf(adapterPath, enable)
+       } else {
+	       r0 = ret.Error(0)
+       }
+       return r0
+}
+
+// SetDiscovering provides a mock function with given fields: adapterPath, enable
+func (_m *MockBluetoothManager) SetDiscovering(adapterPath string, enable bool) error {
+       ret := _m.Called(adapterPath, enable)
+       if len(ret) == 0 {
+	       panic("no return value specified for SetDiscovering")
+       }
+       var r0 error
+       if rf, ok := ret.Get(0).(func(string, bool) error); ok {
+	       r0 = rf(adapterPath, enable)
+       } else {
+	       r0 = ret.Error(0)
+       }
+       return r0
+}
+
 // NewMockBluetoothManager creates a new instance of MockBluetoothManager. It also registers a testing interface on the mock and a cleanup function to assert the mock's expectations.
 // The first argument is typically a *testing.T value.
 func NewMockBluetoothManager(t interface {

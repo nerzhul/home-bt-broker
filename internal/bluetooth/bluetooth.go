@@ -253,3 +253,28 @@ func (bm *BluetoothManager) RemoveDevice(adapterPath, macAddress string) error {
 
 	return nil
 }
+
+// SetDiscoverable enables or disables discoverable mode on an adapter
+func (bm *BluetoothManager) SetDiscoverable(adapterPath string, enable bool) error {
+       obj := bm.conn.Object(BluezService, dbus.ObjectPath(adapterPath))
+       call := obj.Call("org.freedesktop.DBus.Properties.Set", 0, AdapterInterface, "Discoverable", dbus.MakeVariant(enable))
+       if call.Err != nil {
+	       return fmt.Errorf("failed to set discoverable: %w", call.Err)
+       }
+       return nil
+}
+
+// SetDiscovering enables or disables device scanning (discovery) on an adapter
+func (bm *BluetoothManager) SetDiscovering(adapterPath string, enable bool) error {
+       obj := bm.conn.Object(BluezService, dbus.ObjectPath(adapterPath))
+       var call *dbus.Call
+       if enable {
+	       call = obj.Call(AdapterInterface+".StartDiscovery", 0)
+       } else {
+	       call = obj.Call(AdapterInterface+".StopDiscovery", 0)
+       }
+       if call.Err != nil {
+	       return fmt.Errorf("failed to set discovering: %w", call.Err)
+       }
+       return nil
+}

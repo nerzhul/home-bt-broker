@@ -11,6 +11,8 @@ type BluetoothManagerInterface interface {
 	TrustDevice(adapterPath, macAddress string) error
 	PairDevice(adapterPath, macAddress string) error
 	RemoveDevice(adapterPath, macAddress string) error
+	SetDiscoverable(adapterPath string, enable bool) error
+	SetDiscovering(adapterPath string, enable bool) error
 	Close()
 }
 

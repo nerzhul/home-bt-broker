@@ -59,6 +59,8 @@ func main() {
 
 	bluetoothGroup := api.Group("/bluetooth", handlers.AuthMiddleware(db))
 	bluetoothGroup.GET("/adapters", btHandler.GetAdapters)
+	bluetoothGroup.PATCH("/adapters/:adapter/discoverable", btHandler.SetDiscoverable)
+	bluetoothGroup.PATCH("/adapters/:adapter/discovering", btHandler.SetDiscovering)
 	bluetoothGroup.GET("/adapters/:adapter/devices", btHandler.GetDevices)
 	bluetoothGroup.GET("/adapters/:adapter/devices/trusted", btHandler.GetTrustedDevices)
 	bluetoothGroup.GET("/adapters/:adapter/devices/connected", btHandler.GetConnectedDevices)

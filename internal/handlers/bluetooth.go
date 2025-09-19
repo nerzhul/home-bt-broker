@@ -1,5 +1,4 @@
 package handlers
-
 import (
 	"net/http"
 
@@ -281,4 +280,44 @@ func (bh *BluetoothHandler) PairDevice(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{
 		"message": "device pairing initiated successfully",
 	})
+}
+
+// SetDiscoverable enables or disables discoverable mode on an adapter
+func (bh *BluetoothHandler) SetDiscoverable(c echo.Context) error {
+       adapterMAC := c.Param("adapter")
+       if adapterMAC == "" {
+	       return c.JSON(http.StatusBadRequest, map[string]string{"error": "adapter MAC address parameter is required"})
+       }
+       var req struct{ Enable bool `json:"enable"` }
+       if err := c.Bind(&req); err != nil {
+	       return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+       }
+       adapterPath, err := bh.btManager.GetAdapterPathByMAC(adapterMAC)
+       if err != nil {
+	       return c.JSON(http.StatusNotFound, map[string]string{"error": "adapter not found: " + err.Error()})
+       }
+       if err := bh.btManager.SetDiscoverable(adapterPath, req.Enable); err != nil {
+	       return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to set discoverable: " + err.Error()})
+       }
+       return c.JSON(http.StatusOK, map[string]string{"message": "discoverable updated"})
+}
+
+// SetDiscovering enables or disables device scanning (discovery) on an adapter
+func (bh *BluetoothHandler) SetDiscovering(c echo.Context) error {
+       adapterMAC := c.Param("adapter")
+       if adapterMAC == "" {
+	       return c.JSON(http.StatusBadRequest, map[string]string{"error": "adapter MAC address parameter is required"})
+       }
+       var req struct{ Enable bool `json:"enable"` }
+       if err := c.Bind(&req); err != nil {
+	       return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid request body"})
+       }
+       adapterPath, err := bh.btManager.GetAdapterPathByMAC(adapterMAC)
+       if err != nil {
+	       return c.JSON(http.StatusNotFound, map[string]string{"error": "adapter not found: " + err.Error()})
+       }
+       if err := bh.btManager.SetDiscovering(adapterPath, req.Enable); err != nil {
+	       return c.JSON(http.StatusInternalServerError, map[string]string{"error": "failed to set discovering: " + err.Error()})
+       }
+       return c.JSON(http.StatusOK, map[string]string{"message": "discovering updated"})
 }

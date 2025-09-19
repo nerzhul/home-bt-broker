@@ -78,7 +78,13 @@
                     const div = document.createElement('div');
                     div.className = 'adapter';
                     const mac = adapter.address || adapter.Address || '';
-                    div.innerHTML = `<b>Name:</b> ${adapter.name || adapter.address || 'Unknown'}<br><b>MAC:</b> ${mac}
+                    // Scan/discoverable controls
+                    div.innerHTML = `<b>Name:</b> ${adapter.name || adapter.address || 'Unknown'}<br><b>MAC:</b> ${mac}<br>
+                        <span>Discoverable: <b style="color:${adapter.discoverable ? 'green' : 'red'}">${adapter.discoverable ? 'Yes' : 'No'}</b></span>
+                        <button class="toggle-discoverable-btn" style="margin-left:0.5em;">Toggle</button>
+                        <span>Scan: <b style="color:${adapter.discovering ? 'green' : 'red'}">${adapter.discovering ? 'Yes' : 'No'}</b></span>
+                        <button class="toggle-discovering-btn" style="margin-left:0.5em;">Toggle</button>
+                        <span class="scan-msg"></span>
                         <form class="add-device-form" style="margin:1em 0;">
                             <input type="text" name="mac" placeholder="Device MAC address" required pattern="([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}">
                             <button type="submit">Add (Pair) Device</button>
@@ -88,6 +94,36 @@
                         <div style="font-size:0.98em;color:#555;margin-bottom:0.5em;font-weight:bold;">Devices list</div>
                         <div class="devices-list"><span class="loader">Loading devices...</span></div>`;
                     adaptersDiv.appendChild(div);
+                    // Toggle discoverable
+                    const discoverableBtn = div.querySelector('.toggle-discoverable-btn');
+                    discoverableBtn.onclick = async () => {
+                        const msg = div.querySelector('.scan-msg');
+                        msg.textContent = 'Updating...';
+                        const resp = await fetch(`/api/v1/bluetooth/adapters/${mac}/discoverable`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ enable: !adapter.discoverable })
+                        });
+                        const res = await resp.json();
+                        msg.textContent = resp.ok ? 'Discoverable updated!' : (res.error || 'Error');
+                        if (resp.ok) setTimeout(fetchAdapters, 1000);
+                    };
+                    // Toggle discovering
+                    const discoveringBtn = div.querySelector('.toggle-discovering-btn');
+                    discoveringBtn.onclick = async () => {
+                        const msg = div.querySelector('.scan-msg');
+                        msg.textContent = 'Updating...';
+                        const resp = await fetch(`/api/v1/bluetooth/adapters/${mac}/discovering`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ enable: !adapter.discovering })
+                        });
+                        const res = await resp.json();
+                        msg.textContent = resp.ok ? 'Scan updated!' : (res.error || 'Error');
+                        if (resp.ok) setTimeout(fetchAdapters, 1000);
+                    };
                     // Add device form handler
                     const addForm = div.querySelector('.add-device-form');
                     addForm.onsubmit = async (e) => {
