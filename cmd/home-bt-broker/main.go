@@ -46,10 +46,12 @@ func main() {
 		}
 	}
 
-	// Initialize PipeWire and load configuration from database
-	if err := pipewire.InitializePipeWire(db); err != nil {
-		log.Printf("PipeWire initialization error: %v", err)
-		log.Printf("Continuing startup without PipeWire integration...")
+	// Check for combined_output node in PipeWire
+	combinedOutput, err := pipewire.CheckCombinedOutput()
+	if err != nil {
+		log.Fatalf("PipeWire: %v", err)
+	} else if combinedOutput == nil {
+		log.Fatal("No combined_output node found in PipeWire")
 	}
 
 	// Create Echo instance
@@ -95,11 +97,6 @@ func main() {
 	bluetoothGroup.GET("/audio-devices/:mac", btAudioHandler.GetBluetoothAudioDevice)
 	bluetoothGroup.PUT("/audio-devices/:mac", btAudioHandler.SetBluetoothAudioDevice)
 	bluetoothGroup.DELETE("/audio-devices/:mac", btAudioHandler.RemoveBluetoothAudioDevice)
-
-	// Combined audio configuration routes
-	bluetoothGroup.GET("/combined-audio", btAudioHandler.GetCombinedAudioConfig)
-	bluetoothGroup.POST("/combined-audio/devices/:mac", btAudioHandler.AddDeviceToCombined)
-	bluetoothGroup.DELETE("/combined-audio/devices/:mac", btAudioHandler.RemoveDeviceFromCombined)
 
 	// Start server
 	port := os.Getenv("PORT")

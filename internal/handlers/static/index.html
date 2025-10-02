@@ -113,37 +113,6 @@
         .btn-audio:hover {
             opacity: 0.8;
         }
-
-        #combined-audio {
-            margin-top: 1em;
-        }
-
-        .combined-device {
-            background: #f8fafc;
-            border-left: 4px solid #6366f1;
-            margin: 0.5em 0;
-            padding: 0.7em 1em;
-            border-radius: 4px;
-            box-shadow: 0 1px 3px #0001;
-        }
-
-        .btn-combined {
-            background: #6366f1;
-            color: white;
-            border: none;
-            padding: 0.3em 0.6em;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.85em;
-        }
-
-        .btn-combined.remove {
-            background: #ef4444;
-        }
-
-        .btn-combined:hover {
-            opacity: 0.8;
-        }
     </style>
 </head>
 
@@ -152,17 +121,12 @@
     <div id="adapters">
         <span class="loader">Loading...</span>
     </div>
-
+    
     <hr style="margin: 2em 0; border: none; border-top: 2px solid #3498db;">
-
+    
     <h2 style="color: #2c3e50;">Audio Devices</h2>
     <div id="audio-devices">
         <span class="loader">Loading audio devices...</span>
-    </div>
-
-    <h3 style="color: #2c3e50; margin-top: 2em;">Combined Audio Configuration</h3>
-    <div id="combined-audio">
-        <span class="loader">Loading combined audio configuration...</span>
     </div>
     <script>
         async function fetchAdapters() {
@@ -292,16 +256,6 @@
                         });
                     }
                 }
-
-                // Combined audio devices
-                const combinedResp = await fetch(`/api/v1/bluetooth/combined-audio`, { credentials: 'include' });
-                let combinedSet = new Set();
-                if (combinedResp.ok) {
-                    const combinedData = await combinedResp.json();
-                    if (combinedData && combinedData.devices) {
-                        combinedData.devices.forEach(mac => combinedSet.add(mac));
-                    }
-                }
                 if (!data.devices || !data.devices.length) {
                     container.innerHTML = '<span>No device found.</span>';
                     return;
@@ -323,7 +277,6 @@
                     const isTrusted = trustedSet.has(device.address || device.Address || '');
                     const mac = device.address || device.Address || '';
                     const isAudio = audioSet.has(mac);
-                    const isCombined = combinedSet.has(mac);
                     if (isConnected) {
                         classes.push('connected');
                     } else if (isTrusted) {
@@ -339,7 +292,6 @@
                         <span style="margin-left:1em;">Connected: <b style="color:${isConnected ? 'green' : 'red'}">${isConnected ? 'Yes' : 'No'}</b></span>
                         <span style="margin-left:1em;">Trusted: <b style="color:${isTrusted ? 'green' : 'red'}">${isTrusted ? 'Yes' : 'No'}</b></span>
                         <span style="margin-left:1em;">Audio: <b style="color:${isAudio ? 'green' : 'red'}">${isAudio ? 'Yes' : 'No'}</b></span>
-                        <span style="margin-left:1em;">Combined: <b style="color:${isCombined ? 'green' : 'red'}">${isCombined ? 'Yes' : 'No'}</b></span>
                         <span class="device-msg"></span>`;
                     // Add (Pair) button if not paired
                     if (!isPaired) {
@@ -389,7 +341,7 @@
                             e.stopPropagation();
                             const msg = devDiv.querySelector('.device-msg');
                             msg.textContent = isAudio ? 'Removing from audio...' : 'Adding to audio...';
-
+                            
                             const resp = await fetch(`/api/v1/bluetooth/audio-devices/${mac}`, {
                                 method: isAudio ? 'DELETE' : 'PUT',
                                 headers: isAudio ? {} : { 'Content-Type': 'application/json' },
@@ -402,38 +354,10 @@
                                 setTimeout(() => {
                                     fetchDevicesForAdapter(adapterMac, container, adapterDiv);
                                     fetchAudioDevices();
-                                    fetchCombinedAudioDevices();
                                 }, 1000);
                             }
                         };
                         devDiv.appendChild(audioBtn);
-                    }
-
-                    // Add/Remove Combined button for audio-enabled devices
-                    if (isPaired && isAudio) {
-                        const combinedBtn = document.createElement('button');
-                        combinedBtn.textContent = isCombined ? 'Remove Combined' : 'Add Combined';
-                        combinedBtn.className = isCombined ? 'btn-combined remove' : 'btn-combined';
-                        combinedBtn.style.marginLeft = '0.5em';
-                        combinedBtn.onclick = async (e) => {
-                            e.stopPropagation();
-                            const msg = devDiv.querySelector('.device-msg');
-                            msg.textContent = isCombined ? 'Removing from combined...' : 'Adding to combined...';
-
-                            const resp = await fetch(`/api/v1/bluetooth/combined-audio/devices/${mac}`, {
-                                method: isCombined ? 'DELETE' : 'POST',
-                                credentials: 'include'
-                            });
-                            const res = await resp.json();
-                            msg.textContent = resp.ok ? (isCombined ? 'Removed from combined!' : 'Added to combined!') : (res.error || 'Error');
-                            if (resp.ok) {
-                                setTimeout(() => {
-                                    fetchDevicesForAdapter(adapterMac, container, adapterDiv);
-                                    fetchCombinedAudioDevices();
-                                }, 1000);
-                            }
-                        };
-                        devDiv.appendChild(combinedBtn);
                     }
 
                     // Only show delete button for paired devices
@@ -456,7 +380,6 @@
                                 setTimeout(() => {
                                     fetchDevicesForAdapter(adapterMac, container, adapterDiv);
                                     fetchAudioDevices();
-                                    fetchCombinedAudioDevices();
                                 }, 1000);
                             }
                         };
@@ -472,7 +395,7 @@
         async function fetchAudioDevices() {
             const audioDiv = document.getElementById('audio-devices');
             audioDiv.innerHTML = '<span class="loader">Loading audio devices...</span>';
-
+            
             try {
                 const resp = await fetch('/api/v1/bluetooth/audio-devices', { credentials: 'include' });
                 if (!resp.ok) {
@@ -480,24 +403,24 @@
                     audioDiv.innerHTML = `<span class="error">Error: ${err.error || resp.statusText}</span>`;
                     return;
                 }
-
+                
                 const data = await resp.json();
                 if (!data || !data.length) {
                     audioDiv.innerHTML = '<span>No audio devices configured.</span>';
                     return;
                 }
-
+                
                 audioDiv.innerHTML = '';
                 data.forEach(audioDevice => {
                     const devDiv = document.createElement('div');
                     devDiv.className = `audio-device ${audioDevice.enabled ? 'enabled' : 'disabled'}`;
-
+                    
                     devDiv.innerHTML = `
                         <b>MAC:</b> ${audioDevice.mac}<br>
                         <span>Status: <b style="color:${audioDevice.enabled ? 'green' : 'red'}">${audioDevice.enabled ? 'Enabled' : 'Disabled'}</b></span>
                         <span class="audio-msg"></span>
                     `;
-
+                    
                     // Toggle button
                     const toggleBtn = document.createElement('button');
                     toggleBtn.textContent = audioDevice.enabled ? 'Disable' : 'Enable';
@@ -507,7 +430,7 @@
                         e.stopPropagation();
                         const msg = devDiv.querySelector('.audio-msg');
                         msg.textContent = audioDevice.enabled ? 'Disabling...' : 'Enabling...';
-
+                        
                         const resp = await fetch(`/api/v1/bluetooth/audio-devices/${audioDevice.mac}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
@@ -519,13 +442,12 @@
                         if (resp.ok) {
                             setTimeout(() => {
                                 fetchAudioDevices();
-                                fetchCombinedAudioDevices();
                                 fetchAdapters(); // Refresh adapters to update audio status
                             }, 1000);
                         }
                     };
                     devDiv.appendChild(toggleBtn);
-
+                    
                     // Remove button
                     const removeBtn = document.createElement('button');
                     removeBtn.textContent = 'Remove';
@@ -534,10 +456,10 @@
                     removeBtn.onclick = async (e) => {
                         e.stopPropagation();
                         if (!confirm('Are you sure you want to remove this audio device?')) return;
-
+                        
                         const msg = devDiv.querySelector('.audio-msg');
                         msg.textContent = 'Removing...';
-
+                        
                         const resp = await fetch(`/api/v1/bluetooth/audio-devices/${audioDevice.mac}`, {
                             method: 'DELETE',
                             credentials: 'include'
@@ -547,13 +469,12 @@
                         if (resp.ok) {
                             setTimeout(() => {
                                 fetchAudioDevices();
-                                fetchCombinedAudioDevices();
                                 fetchAdapters(); // Refresh adapters to update audio status
                             }, 1000);
                         }
                     };
                     devDiv.appendChild(removeBtn);
-
+                    
                     audioDiv.appendChild(devDiv);
                 });
             } catch (e) {
@@ -561,73 +482,9 @@
             }
         }
 
-        async function fetchCombinedAudioDevices() {
-            const combinedDiv = document.getElementById('combined-audio');
-            combinedDiv.innerHTML = '<span class="loader">Loading combined audio configuration...</span>';
-
-            try {
-                const resp = await fetch('/api/v1/bluetooth/combined-audio', { credentials: 'include' });
-                if (!resp.ok) {
-                    const err = await resp.json();
-                    combinedDiv.innerHTML = `<span class="error">Error: ${err.error || resp.statusText}</span>`;
-                    return;
-                }
-
-                const data = await resp.json();
-                if (!data || !data.devices || !data.devices.length) {
-                    combinedDiv.innerHTML = '<span>No devices in combined audio configuration.</span>';
-                    return;
-                }
-
-                combinedDiv.innerHTML = '';
-                data.devices.forEach(mac => {
-                    const devDiv = document.createElement('div');
-                    devDiv.className = 'combined-device';
-
-                    devDiv.innerHTML = `
-                        <b>MAC:</b> ${mac}<br>
-                        <span class="combined-msg"></span>
-                    `;
-
-                    // Remove button
-                    const removeBtn = document.createElement('button');
-                    removeBtn.textContent = 'Remove';
-                    removeBtn.className = 'btn-combined remove';
-                    removeBtn.style.marginLeft = '1em';
-                    removeBtn.onclick = async (e) => {
-                        e.stopPropagation();
-                        if (!confirm('Are you sure you want to remove this device from combined audio?')) return;
-
-                        const msg = devDiv.querySelector('.combined-msg');
-                        msg.textContent = 'Removing...';
-
-                        const resp = await fetch(`/api/v1/bluetooth/combined-audio/devices/${mac}`, {
-                            method: 'DELETE',
-                            credentials: 'include'
-                        });
-                        const res = await resp.json();
-                        msg.textContent = resp.ok ? 'Removed!' : (res.error || 'Error');
-                        if (resp.ok) {
-                            setTimeout(() => {
-                                fetchCombinedAudioDevices();
-                                fetchAdapters(); // Refresh adapters to update combined status
-                            }, 1000);
-                        }
-                    };
-                    devDiv.appendChild(removeBtn);
-
-                    combinedDiv.appendChild(devDiv);
-                });
-            } catch (e) {
-                combinedDiv.innerHTML = `<span class="error">Network error: ${e}</span>`;
-            }
-        }
-
         // Initialize page
         fetchAdapters();
         fetchAudioDevices();
-        fetchCombinedAudioDevices();
-        fetchCombinedAudioDevices();
     </script>
 </body>
 
