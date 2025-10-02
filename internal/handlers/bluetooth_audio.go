@@ -3,11 +3,11 @@ package handlers
 import (
 	"database/sql"
 	"net/http"
-	"regexp"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/nerzhul/home-bt-broker/internal/database"
+	"github.com/nerzhul/home-bt-broker/internal/pipewire"
+	"github.com/nerzhul/home-bt-broker/internal/utils"
 )
 
 type BluetoothAudioHandler struct {
@@ -19,23 +19,12 @@ type BluetoothAudioDevice struct {
 	Enabled bool   `json:"enabled"`
 }
 
+type CombinedAudioResponse struct {
+	Devices []string `json:"devices"`
+}
+
 func NewBluetoothAudioHandler(db *sql.DB) *BluetoothAudioHandler {
 	return &BluetoothAudioHandler{db: db}
-}
-
-// isValidMAC validates MAC address format
-func isValidMAC(mac string) bool {
-	// MAC address pattern: XX:XX:XX:XX:XX:XX or XX-XX-XX-XX-XX-XX
-	pattern := `^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$`
-	matched, _ := regexp.MatchString(pattern, mac)
-	return matched
-}
-
-// normalizeMAC converts MAC address to uppercase with colons
-func normalizeMAC(mac string) string {
-	// Replace dashes with colons and convert to uppercase
-	normalized := strings.ReplaceAll(mac, "-", ":")
-	return strings.ToUpper(normalized)
 }
 
 // GetBluetoothAudioDevices returns all Bluetooth devices marked as audio-capable
@@ -61,11 +50,11 @@ func (h *BluetoothAudioHandler) GetBluetoothAudioDevices(c echo.Context) error {
 // GET /api/v1/bluetooth/audio-devices/:mac
 func (h *BluetoothAudioHandler) GetBluetoothAudioDevice(c echo.Context) error {
 	mac := c.Param("mac")
-	if !isValidMAC(mac) {
+	if !utils.IsValidMAC(mac) {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid MAC address format"})
 	}
 
-	mac = normalizeMAC(mac)
+	mac = utils.NormalizeMAC(mac)
 
 	enabled, err := database.GetBluetoothAudioDevice(h.db, mac)
 	if err != nil {
@@ -84,11 +73,11 @@ func (h *BluetoothAudioHandler) GetBluetoothAudioDevice(c echo.Context) error {
 // PUT /api/v1/bluetooth/audio-devices/:mac
 func (h *BluetoothAudioHandler) SetBluetoothAudioDevice(c echo.Context) error {
 	mac := c.Param("mac")
-	if !isValidMAC(mac) {
+	if !utils.IsValidMAC(mac) {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid MAC address format"})
 	}
 
-	mac = normalizeMAC(mac)
+	mac = utils.NormalizeMAC(mac)
 
 	var req struct {
 		Enabled bool `json:"enabled"`
@@ -115,11 +104,11 @@ func (h *BluetoothAudioHandler) SetBluetoothAudioDevice(c echo.Context) error {
 // DELETE /api/v1/bluetooth/audio-devices/:mac
 func (h *BluetoothAudioHandler) RemoveBluetoothAudioDevice(c echo.Context) error {
 	mac := c.Param("mac")
-	if !isValidMAC(mac) {
+	if !utils.IsValidMAC(mac) {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid MAC address format"})
 	}
 
-	mac = normalizeMAC(mac)
+	mac = utils.NormalizeMAC(mac)
 
 	err := database.RemoveBluetoothAudioDevice(h.db, mac)
 	if err != nil {
@@ -127,4 +116,90 @@ func (h *BluetoothAudioHandler) RemoveBluetoothAudioDevice(c echo.Context) error
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"message": "bluetooth audio device removed successfully"})
+}
+
+// GetCombinedAudioConfig returns the combined audio configuration
+// GET /api/v1/bluetooth/combined-audio
+func (h *BluetoothAudioHandler) GetCombinedAudioConfig(c echo.Context) error {
+	config, err := database.GetCombinedAudioConfig(h.db)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	response := CombinedAudioResponse{
+		Devices: config.Devices,
+	}
+
+	return c.JSON(http.StatusOK, response)
+}
+
+// AddDeviceToCombined adds a device to the combined audio configuration
+// POST /api/v1/bluetooth/combined-audio/devices/:mac
+func (h *BluetoothAudioHandler) AddDeviceToCombined(c echo.Context) error {
+	mac := c.Param("mac")
+	if !utils.IsValidMAC(mac) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid MAC address format"})
+	}
+
+	mac = utils.NormalizeMAC(mac)
+
+	// Check if device is marked as audio-capable
+	isAudio, err := database.GetBluetoothAudioDevice(h.db, mac)
+	if err != nil || !isAudio {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "device must be marked as audio-capable first"})
+	}
+
+	err = database.AddDeviceToCombined(h.db, mac)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	// Update PipeWire stream rules configuration
+	combinedConfig, err := database.GetCombinedAudioConfig(h.db)
+	if err == nil {
+		if err := pipewire.UpdateCombinedSinks(combinedConfig.Devices); err != nil {
+			// Log the error but don't fail the API call since the device was added to DB
+			c.Echo().Logger.Errorf("Failed to update PipeWire stream rules: %v", err)
+		}
+	} else {
+		c.Echo().Logger.Errorf("Failed to get combined audio config for PipeWire update: %v", err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "device added to combined audio"})
+}
+
+// RemoveDeviceFromCombined removes a device from the combined audio configuration
+// DELETE /api/v1/bluetooth/combined-audio/devices/:mac
+func (h *BluetoothAudioHandler) RemoveDeviceFromCombined(c echo.Context) error {
+	mac := c.Param("mac")
+	if !utils.IsValidMAC(mac) {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid MAC address format"})
+	}
+
+	mac = utils.NormalizeMAC(mac)
+
+	err := database.RemoveDeviceFromCombined(h.db, mac)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	// Update PipeWire stream rules configuration
+	combinedConfig, err := database.GetCombinedAudioConfig(h.db)
+	if err == nil {
+		if len(combinedConfig.Devices) == 0 {
+			// Clear stream rules if no devices left
+			if err := pipewire.ClearStreamRules(); err != nil {
+				c.Echo().Logger.Errorf("Failed to clear PipeWire stream rules: %v", err)
+			}
+		} else {
+			// Update with remaining devices
+			if err := pipewire.UpdateCombinedSinks(combinedConfig.Devices); err != nil {
+				c.Echo().Logger.Errorf("Failed to update PipeWire stream rules: %v", err)
+			}
+		}
+	} else {
+		c.Echo().Logger.Errorf("Failed to get combined audio config for PipeWire update: %v", err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "device removed from combined audio"})
 }
