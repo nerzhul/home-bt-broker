@@ -10,6 +10,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/nerzhul/home-bt-broker/internal/database"
 	"github.com/nerzhul/home-bt-broker/internal/handlers"
+	"github.com/nerzhul/home-bt-broker/internal/pipewire"
 )
 
 func main() {
@@ -25,7 +26,7 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	// Initialize Bluetooth handler
+	// // Initialize Bluetooth handler
 	btHandler, err := handlers.NewBluetoothHandler()
 	if err != nil {
 		log.Fatalf("Failed to initialize Bluetooth handler: %v", err)
@@ -43,6 +44,16 @@ func main() {
 		for _, a := range adapters {
 			log.Printf("- Name: %s, Address: %s, Powered: %v, Discoverable: %v, Discovering: %v", a.Name, a.Address, a.Powered, a.Discoverable, a.Discovering)
 		}
+	}
+
+	// Check for combined_output node in PipeWire
+	combinedOutput, err := pipewire.CheckCombinedOutput()
+	if err != nil {
+		log.Fatalf("PipeWire: %v", err)
+	} else if combinedOutput != nil {
+		log.Printf("Found combined_output node: ID=%d, Name=%s", combinedOutput.ID, combinedOutput.NodeName)
+	} else {
+		log.Fatal("No combined_output node found in PipeWire")
 	}
 
 	// Create Echo instance
