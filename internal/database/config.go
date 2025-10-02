@@ -74,3 +74,63 @@ func ConfigExists(db *sql.DB, key string) (bool, error) {
 	
 	return true, nil
 }
+
+// SetBluetoothAudioDevice marks a Bluetooth device MAC as audio-capable
+func SetBluetoothAudioDevice(db *sql.DB, mac string, enabled bool) error {
+	key := fmt.Sprintf("bluetooth_audio_device_%s", mac)
+	value := "false"
+	if enabled {
+		value = "true"
+	}
+	
+	return SetConfig(db, key, value)
+}
+
+// GetBluetoothAudioDevice checks if a Bluetooth device MAC is marked as audio-capable
+func GetBluetoothAudioDevice(db *sql.DB, mac string) (bool, error) {
+	key := fmt.Sprintf("bluetooth_audio_device_%s", mac)
+	
+	config, err := GetConfig(db, key)
+	if err != nil {
+		// If key doesn't exist, device is not marked as audio-capable
+		return false, nil
+	}
+	
+	return config.Value == "true", nil
+}
+
+// GetAllBluetoothAudioDevices returns all Bluetooth devices marked as audio-capable
+func GetAllBluetoothAudioDevices(db *sql.DB) (map[string]bool, error) {
+	query := `SELECT config_key, config_value FROM config WHERE config_key LIKE 'bluetooth_audio_device_%'`
+	
+	rows, err := db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query bluetooth audio devices: %w", err)
+	}
+	defer rows.Close()
+	
+	devices := make(map[string]bool)
+	
+	for rows.Next() {
+		var key, value string
+		if err := rows.Scan(&key, &value); err != nil {
+			return nil, fmt.Errorf("failed to scan bluetooth audio device: %w", err)
+		}
+		
+		// Extract MAC from key (remove "bluetooth_audio_device_" prefix)
+		mac := key[23:] // len("bluetooth_audio_device_") = 23
+		devices[mac] = value == "true"
+	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+	
+	return devices, nil
+}
+
+// RemoveBluetoothAudioDevice removes a Bluetooth device from audio-capable list
+func RemoveBluetoothAudioDevice(db *sql.DB, mac string) error {
+	key := fmt.Sprintf("bluetooth_audio_device_%s", mac)
+	return DeleteConfig(db, key)
+}
