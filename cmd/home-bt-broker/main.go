@@ -50,7 +50,9 @@ func main() {
 	combinedOutput, err := pipewire.CheckCombinedOutput()
 	if err != nil {
 		log.Fatalf("PipeWire: %v", err)
-	} else if combinedOutput == nil {
+	} else if combinedOutput != nil {
+		log.Printf("Found combined_output node: ID=%d, Name=%s", combinedOutput.ID, combinedOutput.NodeName)
+	} else {
 		log.Fatal("No combined_output node found in PipeWire")
 	}
 
@@ -65,7 +67,6 @@ func main() {
 	e.Use(middleware.CORS())
 
 	h := handlers.NewHandler(db)
-	btAudioHandler := handlers.NewBluetoothAudioHandler(db)
 
 	// Health check endpoints
 	e.GET("/readyz", h.Readiness)
@@ -91,12 +92,6 @@ func main() {
 	bluetoothGroup.POST("/adapters/:adapter/devices/:mac/connect", btHandler.ConnectDevice)
 	bluetoothGroup.POST("/adapters/:adapter/devices/:mac/trust", btHandler.TrustDevice)
 	bluetoothGroup.DELETE("/adapters/:adapter/devices/:mac", btHandler.RemoveDevice)
-
-	// Bluetooth audio device routes
-	bluetoothGroup.GET("/audio-devices", btAudioHandler.GetBluetoothAudioDevices)
-	bluetoothGroup.GET("/audio-devices/:mac", btAudioHandler.GetBluetoothAudioDevice)
-	bluetoothGroup.PUT("/audio-devices/:mac", btAudioHandler.SetBluetoothAudioDevice)
-	bluetoothGroup.DELETE("/audio-devices/:mac", btAudioHandler.RemoveBluetoothAudioDevice)
 
 	// Start server
 	port := os.Getenv("PORT")
