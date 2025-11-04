@@ -67,6 +67,7 @@ func main() {
 	e.Use(middleware.CORS())
 
 	h := handlers.NewHandler(db)
+	aliasHandler := handlers.NewBluetoothAliasHandler(db)
 
 	// Health check endpoints
 	e.GET("/readyz", h.Readiness)
@@ -92,6 +93,12 @@ func main() {
 	bluetoothGroup.POST("/adapters/:adapter/devices/:mac/connect", btHandler.ConnectDevice)
 	bluetoothGroup.POST("/adapters/:adapter/devices/:mac/trust", btHandler.TrustDevice)
 	bluetoothGroup.DELETE("/adapters/:adapter/devices/:mac", btHandler.RemoveDevice)
+
+	// Bluetooth aliases routes
+	bluetoothGroup.GET("/aliases", aliasHandler.GetAllAliases)
+	bluetoothGroup.GET("/aliases/:mac", aliasHandler.GetAlias)
+	bluetoothGroup.PUT("/aliases/:mac", aliasHandler.SetAlias)
+	bluetoothGroup.DELETE("/aliases/:mac", aliasHandler.DeleteAlias)
 
 	// Start server
 	port := os.Getenv("PORT")
