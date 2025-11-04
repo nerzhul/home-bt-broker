@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/nerzhul/home-bt-broker/internal/database"
+	"github.com/nerzhul/home-bt-broker/internal/bluetooth"
 	"github.com/nerzhul/home-bt-broker/internal/handlers"
 	"github.com/nerzhul/home-bt-broker/internal/pipewire"
 )
@@ -26,12 +28,20 @@ func main() {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	// // Initialize Bluetooth handler
-	btHandler, err := handlers.NewBluetoothHandler()
+	// Initialize shared Bluetooth manager and handlers
+	btMgr, err := bluetooth.NewBluetoothManager()
+	if err != nil {
+		log.Fatalf("Failed to initialize Bluetooth manager: %v", err)
+	}
+	btHandler := handlers.NewBluetoothHandlerWithManager(btMgr)
 	if err != nil {
 		log.Fatalf("Failed to initialize Bluetooth handler: %v", err)
 	}
 	defer btHandler.Close()
+
+	// Start aggressive reconnect loop for trusted, paired devices (default 10s interval or RECONNECT_INTERVAL_SECONDS)
+	interval := bluetooth.GetReconnectInterval(10)
+	bluetooth.StartReconnectLoop(context.Background(), btMgr, interval)
 
 	// Log Bluetooth adapters at startup
 	adapters, err := btHandler.GetAdaptersRaw()

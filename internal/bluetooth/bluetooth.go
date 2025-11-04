@@ -1,26 +1,30 @@
 package bluetooth
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strings"
+	"time"
+	"sync"
 
 	"github.com/godbus/dbus/v5"
 )
 
 const (
-	BluezService        = "org.bluez"
-	BluezObjectPath     = "/"
-	AdapterInterface    = "org.bluez.Adapter1"
-	DeviceInterface     = "org.bluez.Device1"
-	AgentManagerIface   = "org.bluez.AgentManager1"
-	AgentInterface      = "org.bluez.Agent1"
-	ObjectManagerIface  = "org.freedesktop.DBus.ObjectManager"
+	BluezService       = "org.bluez"
+	BluezObjectPath    = "/"
+	AdapterInterface   = "org.bluez.Adapter1"
+	DeviceInterface    = "org.bluez.Device1"
+	AgentManagerIface  = "org.bluez.AgentManager1"
+	AgentInterface     = "org.bluez.Agent1"
+	ObjectManagerIface = "org.freedesktop.DBus.ObjectManager"
 )
 
 type BluetoothManager struct {
 	conn      *dbus.Conn
 	agentPath dbus.ObjectPath
+	mu        sync.Mutex
 }
 
 type Adapter struct {
@@ -43,38 +47,51 @@ type Device struct {
 }
 
 // NewBluetoothManager creates a new Bluetooth manager instance
+var (
+	managerOnce    sync.Once
+	sharedManager  *BluetoothManager
+	managerInitErr error
+)
+
+// NewBluetoothManager returns a shared BluetoothManager instance (singleton)
 func NewBluetoothManager() (*BluetoothManager, error) {
-	conn, err := dbus.SystemBus()
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to D-Bus: %w", err)
-	}
-
-	bm := &BluetoothManager{
-		conn:      conn,
-		agentPath: "/org/bluez/AutoPairAgent",
-	}
-
-	// Register the agent
-	if err := bm.registerAgent(); err != nil {
-		conn.Close()
-		return nil, fmt.Errorf("failed to register agent: %w", err)
-	}
-
-	return bm, nil
+	managerOnce.Do(func() {
+		conn, err := dbus.SystemBus()
+		if err != nil {
+			managerInitErr = fmt.Errorf("failed to connect to D-Bus: %w", err)
+			return
+		}
+		bm := &BluetoothManager{
+			conn:      conn,
+			agentPath: "/org/bluez/AutoPairAgent",
+		}
+		// Register the agent
+		if err := bm.registerAgent(); err != nil {
+			conn.Close()
+			managerInitErr = fmt.Errorf("failed to register agent: %w", err)
+			return
+		}
+		sharedManager = bm
+	})
+	return sharedManager, managerInitErr
 }
 
 // Close closes the D-Bus connection
 func (bm *BluetoothManager) Close() {
 	if bm.conn != nil {
 		// Unregister agent before closing
+		bm.mu.Lock()
 		bm.unregisterAgent()
 		bm.conn.Close()
+		bm.mu.Unlock()
 	}
 }
 
 // GetAdapters returns a list of all Bluetooth adapters
 func (bm *BluetoothManager) GetAdapters() ([]Adapter, error) {
+	bm.mu.Lock()
 	obj := bm.conn.Object(BluezService, BluezObjectPath)
+	bm.mu.Unlock()
 	call := obj.Call(ObjectManagerIface+".GetManagedObjects", 0)
 	if call.Err != nil {
 		return nil, fmt.Errorf("failed to get managed objects: %w", call.Err)
@@ -92,7 +109,7 @@ func (bm *BluetoothManager) GetAdapters() ([]Adapter, error) {
 			adapter := Adapter{
 				Path: string(path),
 			}
-			
+
 			if name, ok := adapterProps["Name"]; ok {
 				adapter.Name = name.Value().(string)
 			}
@@ -108,7 +125,7 @@ func (bm *BluetoothManager) GetAdapters() ([]Adapter, error) {
 			if discovering, ok := adapterProps["Discovering"]; ok {
 				adapter.Discovering = discovering.Value().(bool)
 			}
-			
+
 			adapters = append(adapters, adapter)
 		}
 	}
@@ -118,7 +135,9 @@ func (bm *BluetoothManager) GetAdapters() ([]Adapter, error) {
 
 // GetDevices returns all devices for a specific adapter
 func (bm *BluetoothManager) GetDevices(adapterPath string) ([]Device, error) {
+	bm.mu.Lock()
 	obj := bm.conn.Object(BluezService, BluezObjectPath)
+	bm.mu.Unlock()
 	call := obj.Call(ObjectManagerIface+".GetManagedObjects", 0)
 	if call.Err != nil {
 		return nil, fmt.Errorf("failed to get managed objects: %w", call.Err)
@@ -143,7 +162,7 @@ func (bm *BluetoothManager) GetDevices(adapterPath string) ([]Device, error) {
 				Path:    pathStr,
 				Adapter: adapterPath,
 			}
-			
+
 			if name, ok := deviceProps["Name"]; ok {
 				device.Name = name.Value().(string)
 			}
@@ -159,7 +178,7 @@ func (bm *BluetoothManager) GetDevices(adapterPath string) ([]Device, error) {
 			if connected, ok := deviceProps["Connected"]; ok {
 				device.Connected = connected.Value().(bool)
 			}
-			
+
 			devices = append(devices, device)
 		}
 	}
@@ -204,9 +223,14 @@ func (bm *BluetoothManager) GetConnectedDevices(adapterPath string) ([]Device, e
 // ConnectDevice connects to a device by MAC address
 func (bm *BluetoothManager) ConnectDevice(adapterPath, macAddress string) error {
 	devicePath := fmt.Sprintf("%s/dev_%s", adapterPath, strings.ReplaceAll(macAddress, ":", "_"))
-	
+
+	bm.mu.Lock()
 	obj := bm.conn.Object(BluezService, dbus.ObjectPath(devicePath))
-	call := obj.Call(DeviceInterface+".Connect", 0)
+	bm.mu.Unlock()
+	// Use a 12.5-second context timeout (half of default ~25s)
+	ctx, cancel := context.WithTimeout(context.Background(), 12500*time.Millisecond)
+	defer cancel()
+	call := obj.CallWithContext(ctx, DeviceInterface+".Connect", 0)
 	if call.Err != nil {
 		return fmt.Errorf("failed to connect to device %s: %w", macAddress, call.Err)
 	}
@@ -217,8 +241,9 @@ func (bm *BluetoothManager) ConnectDevice(adapterPath, macAddress string) error 
 // TrustDevice sets a device as trusted by MAC address
 func (bm *BluetoothManager) TrustDevice(adapterPath, macAddress string) error {
 	devicePath := fmt.Sprintf("%s/dev_%s", adapterPath, strings.ReplaceAll(macAddress, ":", "_"))
-	
+	bm.mu.Lock()
 	obj := bm.conn.Object(BluezService, dbus.ObjectPath(devicePath))
+	bm.mu.Unlock()
 	call := obj.Call("org.freedesktop.DBus.Properties.Set", 0, DeviceInterface, "Trusted", dbus.MakeVariant(true))
 	if call.Err != nil {
 		return fmt.Errorf("failed to trust device %s: %w", macAddress, call.Err)
@@ -246,8 +271,9 @@ func (bm *BluetoothManager) GetAdapterPathByMAC(macAddress string) (string, erro
 // PairDevice pairs with a device by MAC address and auto-accepts PIN/passkey
 func (bm *BluetoothManager) PairDevice(adapterPath, macAddress string) error {
 	devicePath := fmt.Sprintf("%s/dev_%s", adapterPath, strings.ReplaceAll(macAddress, ":", "_"))
-	
+	bm.mu.Lock()
 	obj := bm.conn.Object(BluezService, dbus.ObjectPath(devicePath))
+	bm.mu.Unlock()
 	call := obj.Call(DeviceInterface+".Pair", 0)
 	if call.Err != nil {
 		return fmt.Errorf("failed to pair with device %s: %w", macAddress, call.Err)
@@ -259,8 +285,9 @@ func (bm *BluetoothManager) PairDevice(adapterPath, macAddress string) error {
 // RemoveDevice removes a device by MAC address
 func (bm *BluetoothManager) RemoveDevice(adapterPath, macAddress string) error {
 	devicePath := fmt.Sprintf("%s/dev_%s", adapterPath, strings.ReplaceAll(macAddress, ":", "_"))
-	
+	bm.mu.Lock()
 	obj := bm.conn.Object(BluezService, dbus.ObjectPath(adapterPath))
+	bm.mu.Unlock()
 	call := obj.Call(AdapterInterface+".RemoveDevice", 0, dbus.ObjectPath(devicePath))
 	if call.Err != nil {
 		return fmt.Errorf("failed to remove device %s: %w", macAddress, call.Err)
@@ -271,27 +298,31 @@ func (bm *BluetoothManager) RemoveDevice(adapterPath, macAddress string) error {
 
 // SetDiscoverable enables or disables discoverable mode on an adapter
 func (bm *BluetoothManager) SetDiscoverable(adapterPath string, enable bool) error {
-       obj := bm.conn.Object(BluezService, dbus.ObjectPath(adapterPath))
-       call := obj.Call("org.freedesktop.DBus.Properties.Set", 0, AdapterInterface, "Discoverable", dbus.MakeVariant(enable))
-       if call.Err != nil {
-	       return fmt.Errorf("failed to set discoverable: %w", call.Err)
-       }
-       return nil
+	bm.mu.Lock()
+	obj := bm.conn.Object(BluezService, dbus.ObjectPath(adapterPath))
+	bm.mu.Unlock()
+	call := obj.Call("org.freedesktop.DBus.Properties.Set", 0, AdapterInterface, "Discoverable", dbus.MakeVariant(enable))
+	if call.Err != nil {
+		return fmt.Errorf("failed to set discoverable: %w", call.Err)
+	}
+	return nil
 }
 
 // SetDiscovering enables or disables device scanning (discovery) on an adapter
 func (bm *BluetoothManager) SetDiscovering(adapterPath string, enable bool) error {
-       obj := bm.conn.Object(BluezService, dbus.ObjectPath(adapterPath))
-       var call *dbus.Call
-       if enable {
-	       call = obj.Call(AdapterInterface+".StartDiscovery", 0)
-       } else {
-	       call = obj.Call(AdapterInterface+".StopDiscovery", 0)
-       }
-       if call.Err != nil {
-	       return fmt.Errorf("failed to set discovering: %w", call.Err)
-       }
-       return nil
+	bm.mu.Lock()
+	obj := bm.conn.Object(BluezService, dbus.ObjectPath(adapterPath))
+	bm.mu.Unlock()
+	var call *dbus.Call
+	if enable {
+		call = obj.Call(AdapterInterface+".StartDiscovery", 0)
+	} else {
+		call = obj.Call(AdapterInterface+".StopDiscovery", 0)
+	}
+	if call.Err != nil {
+		return fmt.Errorf("failed to set discovering: %w", call.Err)
+	}
+	return nil
 }
 
 // Agent methods for automatic pairing authentication
@@ -310,7 +341,7 @@ func (bm *BluetoothManager) SetDiscovering(adapterPath string, enable bool) erro
 // registerAgent registers the Bluetooth agent for automatic authentication
 func (bm *BluetoothManager) registerAgent() error {
 	log.Printf("Bluetooth Agent: Registering agent at path %s", bm.agentPath)
-	
+
 	// Export the agent object
 	err := bm.conn.Export(bm, bm.agentPath, AgentInterface)
 	if err != nil {
