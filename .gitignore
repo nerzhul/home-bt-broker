@@ -12,6 +12,7 @@ app-static
 
 # Build directory
 bin/
+target/
 
 # Test binary, built with `go test -c`
 *.test

@@ -13,38 +13,22 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.24'
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
 
-    - name: Cache Go modules
+    - name: Cache Rust build
       uses: actions/cache@v4
       with:
         path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
-          ${{ runner.os }}-go-
-
-    - name: Download dependencies
-      run: go mod download
+          ${{ runner.os }}-cargo-
 
     - name: Run tests
-      run: go test -v ./...
-
-    - name: Run tests with coverage
-      run: go test -coverprofile=coverage.out ./...
-
-    - name: Check coverage threshold
-      run: |
-        COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
-        echo "Coverage: ${COVERAGE}%"
-        if (( $(echo "$COVERAGE < 70" | bc -l) )); then
-          echo "Coverage ${COVERAGE}% is below minimum threshold of 70%"
-          exit 1
-        fi
+      run: cargo test --verbose
 
   build-and-push:
     needs: test

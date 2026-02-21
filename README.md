@@ -1,11 +1,11 @@
 # home-bt-broker
 
-A Bluetooth broker web application built with Go, Echo framework, and SQLite. This application provides RESTful APIs for managing Bluetooth devices via BlueZ and storing authentication tokens.
+A Bluetooth broker web application built with Rust, Axum framework, and SQLite. This application provides RESTful APIs for managing Bluetooth devices via BlueZ and storing authentication tokens.
 
 ## Features
 
 - **Multi-architecture support**: Built for both ARM64 and AMD64 architectures using Docker Bake
-- **SQLite database**: Lightweight database with migrations managed by golang-migrate
+- **SQLite database**: Lightweight database with migrations managed by sqlx-migrate
 - **BlueZ integration**: Full Bluetooth device management via D-Bus
 - **Health checks**: Includes `/readyz` and `/livez` endpoints for Kubernetes/container orchestration
 - **RESTful API**: CRUD operations for managing username/token pairs and Bluetooth devices
@@ -48,8 +48,8 @@ docker buildx bake
 
 ### Local Development
 ```bash
-go mod download
-go run ./cmd/home-bt-broker/main.go
+cargo build
+cargo run
 ```
 
 ## Configuration
@@ -117,9 +117,9 @@ The project includes automated GitHub Actions workflows:
 ### Workflows
 
 - **Unit Tests** (`.github/workflows/test.yml`): Runs on every push and pull request
-  - Executes all unit tests with coverage reporting
+  - Executes all unit tests with coverage reporting via `cargo-tarpaulin`
   - Uploads coverage artifacts
-  - Supports Go 1.22
+  - Uses stable Rust toolchain
 
 - **Docker Build** (`.github/workflows/docker.yml`): Builds multi-architecture Docker images
   - Builds for both AMD64 and ARM64 architectures
@@ -143,7 +143,7 @@ ghcr.io/nerzhul/home-bt-broker:v1.0.0  # version tags
 
 ```bash
 # Run tests locally (same as CI)
-make test
+cargo test
 
 # Build Docker images locally
 make docker-build        # Single architecture

@@ -1,32 +1,31 @@
 # Build stage
-FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
+FROM --platform=$BUILDPLATFORM rust:alpine AS builder
 
-# Install build dependencies
-RUN apk update && apk add --no-cache gcc musl-dev
+# Install build dependencies (needed for SQLite and linking)
+RUN apk update && apk add --no-cache gcc musl-dev sqlite-dev
 
 WORKDIR /app
 
-# Copy go mod files
-COPY go.mod go.sum ./
-RUN go mod download
+# Cache dependencies by building a dummy project first
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir -p src && echo "fn main() {}" > src/main.rs \
+    && cargo build --release \
+    && rm -rf src
 
-# Copy source code
-COPY . .
+# Copy source code, static assets and migrations
+COPY src ./src
+COPY static ./static
+COPY migrations ./migrations
 
-# Build arguments for cross-compilation
-ARG TARGETOS
-ARG TARGETARCH
-
-# Build the application with static linking to avoid SQLite dependencies
-RUN CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH \
-    go build -ldflags="-w -s -extldflags '-static'" -tags sqlite_omit_load_extension \
-    -o app ./cmd/home-bt-broker/main.go
+# Touch main.rs to force rebuild after dummy build
+RUN touch src/main.rs && cargo build --release
 
 # Final stage - use distroless for minimal attack surface
 FROM gcr.io/distroless/static-debian12:latest
 
-# Copy binary and migrations from builder
-COPY --from=builder /app/app /app
+# Copy binary, static assets and migrations from builder
+COPY --from=builder /app/target/release/home-bt-broker /app
+COPY --from=builder /app/static /static
 COPY --from=builder /app/migrations /migrations
 
 # Expose port
